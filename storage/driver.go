@@ -1,7 +1,7 @@
 package storage
 
 import (
-	. "github.com/CGentry/gus"
+	"github.com/CGentry/gus"
 )
 
 const (
@@ -11,15 +11,50 @@ const (
 	BANK_USER_DATA_NOTFOUND = iota
 )
 
-var driverStore = make( map[string] Driver )
+/*
+ *			Dynamic interfaces
+ */
+var driverMap = make( map[string] EncryptDriver )
 var driverSelect string
+const driver_name = "Storage"
+
+func Register( name string , driver Driver ){
+	if driver == nil {
+		panic(driver_name + " driver: Register driver is nil")
+	}
+	if _,dup := driverMap[name] ; dup {
+		panic( driver_name + " driver: Register called twice for '" + name + "'")
+	}
+	driverMap[name] = driver
+
+	// First in...first registered
+	if len( driverMap ) == 1 {
+		driverMap = name
+	}
+
+}
+
+func SetDriver( name string ){
+	if _ , found := driverMap[name] ; ! found {
+		panic( driver_name + " driver: '" + name + "'. Name not found")
+	}
+	driverSelect = name
+}
+
+// GetEncryption will return the driver class associated with the curent driver setup
+func GetDriver( ) ( Driver  ){
+	if d, found := driverMap[name] ;  found {
+		return d
+	}
+	panic( driver_name + " driver: '" + name + "'. Name not found")
+}
 
 
 // The banker interface defines very general, high level operations for retrieval and storage of
 // data. The back-storage can be a flat file, database or document store.
 // The interfaces specify NO sql methods and flatten out operations
 type Driver interface {
-	FetchUserByGuid(  guid string )(   * User , int )
+	FetchUserByGuid(  guid string )(   * model.User , int )
 	/*
 	FetchUserByToken( token string )(  * User , int )
 	FetchUserByEmail( email string )(  * User , int )
@@ -45,27 +80,3 @@ type Driver interface {
 
 }
 
-// Register storage function for later use. The first storage mechanism will be the default
-// Multiple mechanisms may be stored but only one will be used
-func RegisterStorage( name string , driver Driver ){
-	if driver == nil {
-		panic("Storage driver: Register driver is nil")
-	}
-
-	if _,dup := driverStore[name] ; dup {
-		panic( "Storage driver: Register called twice for '" + name + "'")
-	}
-
-	driverStore[name] = driver
-	if driverSelect == "" || len( driverStore ) == 1  {
-		driverSelect = name
-	}
-}
-
-// Fetch the storage mechanism that is active
-func GetStorageDriver() Driver {
-	if driverSelect == "" || len( driverStore ) == 0  {
-		panic( "Storage driver: Nothing selected")
-	}
-	return driverStore[driverSelect]
-}

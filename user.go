@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	"github.com/cgentry/gus/encryption"
 )
 
 const (
@@ -37,7 +39,7 @@ type User struct {
 	Password  string // Password (encrypted) for user
 	Token     string // Generated at login-time
 
-	MagicNumber string // Magic number used to hash values for user
+	Salt string // Magic number used to hash values for user
 
 	IsActive   bool // Is this an active user
 	IsLoggedIn bool // Is this user currently logged in
@@ -82,9 +84,9 @@ type UserControl struct {
  *				INTERNAL ROUTINES
  */
 
-// createMagicNumber will create a magic number for use with other functions,
+// createSalt will create a magic number for use with other functions,
 // like creating a GUID or a token.
-func createMagicNumber(len int) string {
+func createSalt(len int) string {
 	b := make([]byte, len)
 	_, err := rand.Read(b)
 	if err != nil {
@@ -113,7 +115,7 @@ func (uc *UserControl) SetTimeout(interval string) (err error) {
  *			-- User --
  */
 // NewUser creates a new user record with only the Domain filled in.
-// The "MagicNumber" field is a crypto-random number in order to produce
+// The "Salt" field is a crypto-random number in order to produce
 // unique values
 func NewUser(domain string) User {
 	user := User{}
@@ -121,8 +123,16 @@ func NewUser(domain string) User {
 	user.UpdatedAt = user.CreatedAt
 
 	user.SetDomain(domain)
-	user.MagicNumber = createMagicNumber(20)
+	user.Salt = createSalt(20)
 	user.Token = ""
+	return user
+}
+
+// NewTestUser will generate a nonsense test user
+func NewTestUser() User {
+	user := NewUser("_test")
+	user.SetName( "test")
+	user.SetEmail( "test@nowhere.com" )
 	return user
 }
 
@@ -163,7 +173,7 @@ func (user *User) GetGuid() string {
 		guid := md5.New()
 		guid.Write([]byte(user.Domain))						// Add in the user's domain
 		guid.Write([]byte( user.GetCreatedAt().String()))	// Add in the creation string
-		guid.Write([]byte(user.GetMagicNumber()))			// And the user's magic (unique) number
+		guid.Write([]byte(user.GetSalt()))			// And the user's magic (unique) number
 		out := guid.Sum(nil)
 		user.Guid = fmt.Sprintf("%x-%x-%x-%x-%x", out[0:4], out[4:6], out[6:8], out[8:10], out[10:len(out)])
 	}
@@ -181,10 +191,10 @@ func (user *User) GetDomain() string {
 	return user.Domain
 }
 
-// GetMagicNumber will get the special account-specific magic number.
+// GetSalt will get the special account-specific magic number.
 // Normally used for salting various other functions, like password
-func (user *User) GetMagicNumber() string {
-	return user.MagicNumber
+func (user *User) GetSalt() string {
+	return user.Salt
 }
 
 func (user *User) GetPassword() string {
@@ -195,11 +205,7 @@ func (user *User ) SetPassword( newPassword string ) int {
 	if user.Password != "" {
 		return USER_INVALID
 	}
-	t,found := pwdDrivers[driverName]
-	if ! found {
-		panic( "No encryption library found")
-	}
-	user.Password = t.EncryptPassword( user , newPassword )
+	user.Password = encryption.GetDriver().EncryptPassword( newPassword , user.Salt )
 
 	return USER_OK
 }
@@ -210,13 +216,22 @@ func (user *User) GetToken() (string, int) {
 	return user.Token, rtn
 }
 
+func (user *User) GetEmail() string {
+	return user.Email
+}
+
+func ( user * User ) SetEmail( email string) error {
+	user.Email = email
+	return nil
+}
+
 // CreateToken will generate a short-use token for confirmation with authentication.
 // The token can be used as a ticket until it expires. Any program can gain access
 // to user information with it. Tokens can be saves
 func (user *User) CreateToken() string {
 	guid := md5.New()
 	guid.Write([]byte(user.GetGuid()))			// Always based on user's GUID
-	guid.Write([]byte(createMagicNumber(20)))	// And a non-repeatable magic number
+	guid.Write([]byte(createSalt(20)))	// And a non-repeatable magic number
 	out := guid.Sum(nil)
 	return fmt.Sprintf("%x-%x-%x-%x-%x", out[0:4], out[4:6], out[6:8], out[8:10], out[10:len(out)])
 }
@@ -248,6 +263,7 @@ func (user *User) Authenticate(token string) int {
 	return USER_INVALID
 }
 
+
 // Login will authenticate the user and create the tokens required later
 func (user *User) Login(password string) (int, error) {
 
@@ -260,8 +276,7 @@ func (user *User) Login(password string) (int, error) {
 		user.FailCount++        // Increment failure count
 		return status , errors.New( "Invalid login/password")
 	}
-	t,_ := pwdDrivers[driverName]
-	pwd := t.EncryptPassword(user , password) // Encrypt password
+	pwd := encryption.GetDriver().EncryptPassword(password , user.Salt) // Encrypt password
 
 
 	if pwd != user.Password { // Password differ?
@@ -295,15 +310,12 @@ func (user *User) Logout() {
 // ChangePassword to the new password. The user must be logged in for this
 func ( user *User ) ChangePassword( oldPassword, token, newPassword string) int {
 	if user.Authenticate(token) == USER_OK {
-		t,found := pwdDrivers[driverName]
-		if  ! found {
-			panic("No password encryption set")
-		}
-		if t.EncryptPassword(user , oldPassword) == user.Password {
+		t := encryption.GetDriver()
+		if t.EncryptPassword( oldPassword , user.Salt) == user.Password {
 			if check := user.CheckNewPassword(newPassword); check != USER_OK {
 				return check
 			}
-			user.Password = t.EncryptPassword( user , newPassword)
+			user.Password = t.EncryptPassword( newPassword , user.Salt)
 			return USER_OK
 		}
 	}
@@ -311,11 +323,7 @@ func ( user *User ) ChangePassword( oldPassword, token, newPassword string) int 
 }
 
 func ( user *User ) CheckPassword(  testPassword string ) int {
-	t,found := pwdDrivers[driverName]
-	if ! found {
-		panic("No password encryption set")
-	}
-	pwd := t.EncryptPassword(user , testPassword) // Encrypt password
+	pwd := encryption.GetDriver().EncryptPassword(testPassword , user.Salt) // Encrypt password
 
 	if pwd != user.GetPassword() {
 		return USER_INVALID
@@ -348,23 +356,3 @@ func (user *User) String() string {
 		user.FullName , user.Password , user.Email )
 }
 
-/*
- *			Dynamic interfaces
- *			-- UserReturn --
- */
-var pwdDrivers = make( map[string] Passworder )
-var driverName = "sha512"
-
-func RegisterPassword( name string , driver Passworder ){
-	if driver == nil {
-		panic("Password driver: Register driver is nil")
-	}
-	if _,dup := pwdDrivers[name] ; dup {
-		panic( "Password driver: Register called twice for '" + name + "'")
-	}
-	pwdDrivers[name] = driver
-}
-
-func SetPasswordEncryption( name string ){
-	driverName = name
-}
