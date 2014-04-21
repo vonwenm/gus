@@ -1,4 +1,4 @@
-package sha512
+package bcrypt
 
 import (
 	"testing"
@@ -16,12 +16,12 @@ func TestGenerate( t *testing.T ){
 	}
 }
 
-func TestRepeatable( t *testing.T ){
+func TestCompare( t *testing.T ){
 	user := gus.NewTestUser()
 	pwd  := encryption.GetDriver().EncryptPassword( "123456" , user.GetSalt() )
-	pwd2 := encryption.GetDriver().EncryptPassword( "123456" , user.GetSalt() )
-	if( pwd != pwd2 ){
-		t.Errorf( "Passwords didn't match: '%s' and '%s'" , pwd , pwd2 )
+
+	if ! encryption.GetDriver().ComparePasswords( pwd , "123456" , user.GetSalt() ) {
+		t.Errorf( "Passwords didn't match")
 	}
 
 }
@@ -30,7 +30,7 @@ func TestIsLongEnough( t *testing.T ){
 	user := gus.NewTestUser()
 	pwd := encryption.GetDriver().EncryptPassword(  "hello" , user.GetSalt() )
 	pwdLen := len( pwd )
-	if pwdLen != 88 {
+	if pwdLen < 60  {
 		t.Errorf("PWD isn't long enough %d" , pwdLen )
 	}
 }

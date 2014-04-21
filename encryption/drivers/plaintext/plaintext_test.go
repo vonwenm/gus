@@ -1,4 +1,4 @@
-package sha512
+package plaintext
 
 import (
 	"testing"
@@ -11,8 +11,8 @@ func TestGenerate( t *testing.T ){
 
 	user := gus.NewTestUser()
 	pwd := encryption.GetDriver().EncryptPassword(  "hello" , user.GetSalt() )
-	if pwd == "hello" {
-		t.Errorf("pwd didn't get encrypted")
+	if pwd != "hello;" + user.GetSalt() {
+		t.Errorf("Passwords don't match encrypted")
 	}
 }
 
@@ -30,7 +30,8 @@ func TestIsLongEnough( t *testing.T ){
 	user := gus.NewTestUser()
 	pwd := encryption.GetDriver().EncryptPassword(  "hello" , user.GetSalt() )
 	pwdLen := len( pwd )
-	if pwdLen != 88 {
+	sbLen := len ( "hello;" + user.GetSalt() )
+	if pwdLen != sbLen {
 		t.Errorf("PWD isn't long enough %d" , pwdLen )
 	}
 }

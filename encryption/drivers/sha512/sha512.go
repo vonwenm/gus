@@ -10,12 +10,12 @@ import (
 type PwdSha512 struct {}
 
 // The following string should not be changed once you use it.
-var pwd_magic string
+var internalSalt string
 
 
 func init(){
 	encryption.Register( "sha512" , &PwdSha512{} )
-	pwd_magic = "}o2P@56ha*6T321h£HcQXleH~$JKR1.t6jwqay%van6e9CSo^gtfyUeQp{2h&gV,KoQi9ysC"
+	internalSalt = "}o2P@56ha*6T321h£HcQXleH~$JKR1.t6jwqay%van6e9CSo^gtfyUeQp{2h&gV,KoQi9ysC"
 }
 // EncryptPassword will encrypt the password using the magic number within the record.
 // This should be sufficient to protect it but still allow us to re-create later on.
@@ -28,7 +28,7 @@ func (t *PwdSha512) EncryptPassword(pwd , salt string ) string {
 		crypt.Write([]byte(pass1))
 		crypt.Write([]byte(salt))
 		crypt.Write([]byte(pwd))
-		crypt.Write([]byte(pwd_magic))
+		crypt.Write([]byte(internalSalt))
 		pass1 = crypt.Sum(nil)
 		crypt.Reset()
 	}
@@ -37,6 +37,10 @@ func (t *PwdSha512) EncryptPassword(pwd , salt string ) string {
 }
 
 func (t *PwdSha512) SetInternalSalt( salt string ){
-	pwd_magic = salt
+	internalSalt = salt
+}
+
+func ( t * PwdSha512 ) ComparePasswords( hashedPassword , password , salt string ) bool {
+	return hashedPassword == t.EncryptPassword( password , salt )
 }
 
