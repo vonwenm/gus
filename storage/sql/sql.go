@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"github.com/CGentry/gus"
 	"github.com/CGentry/gus/storage"
+	"fmt"
 )
 
 type StorageSql struct{
@@ -11,9 +12,17 @@ type StorageSql struct{
 	lastError	error
 }
 
+const storage_ident = "sql"
 
 func init(){
-	storage.RegisterStorage("sql" , &StorageSql{})
+	fmt.Println( "Calling register with " + storage_ident )
+	storage.Register( storage_ident , &StorageSql{})
+	fmt.Println( "Storage name now: '" + storage.GetDriverName() + "'")
+}
+
+
+func ( t *StorageSql ) GetRawHandle() interface{}{
+	return t.db
 }
 
 func ( t *StorageSql ) GetLastError() error {
@@ -24,10 +33,9 @@ func ( t * StorageSql ) WasLastOk() bool {
 	return t.lastError == nil
 }
 
-func  OpenSql( name, connect string ) ( * StorageSql , error ) {
-	s := new( StorageSql )
-	s.db , s.lastError = sql.Open( name , connect )
-	return s, s.lastError
+func ( t * StorageSql ) Open( name, connect string ) error {
+	t.db , t.lastError = sql.Open( name , connect )
+	return t.lastError
 }
 
 
@@ -38,12 +46,16 @@ func ( t *StorageSql ) Close() error {
 
 // Convert db data to user structure. For this, we expect a 1:1 mapping
 func ( t * StorageSql ) mapToUser( rows *sql.Rows )  []gus.User {
-	var users []gus.User
-	for rows.Next() {
-		user := new(gus.User)
-		
-		users = append( users, *user )
 
+	var users []gus.User
+
+	for rows.Next() {
+		cols,_ := rows.Columns()
+		//user := new(gus.User)
+
+		for name := range cols {
+			fmt.Printf( "Name is %s\n" , name)
+		}
 		// Copy data over
 
 	}

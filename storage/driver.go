@@ -2,6 +2,7 @@ package storage
 
 import (
 	"github.com/CGentry/gus"
+	"fmt"
 )
 
 const (
@@ -14,11 +15,13 @@ const (
 /*
  *			Dynamic interfaces
  */
-var driverMap = make( map[string] EncryptDriver )
-var driverSelect string
+var driverMap   = make( map[string] Driver )
+var driverSelect string = "unset"
+
 const driver_name = "Storage"
 
 func Register( name string , driver Driver ){
+	fmt.Println( "In register with " + name )
 	if driver == nil {
 		panic(driver_name + " driver: Register driver is nil")
 	}
@@ -29,12 +32,17 @@ func Register( name string , driver Driver ){
 
 	// First in...first registered
 	if len( driverMap ) == 1 {
-		driverMap = name
+		SetDriver( name )
 	}
+}
 
+func GetDriverName() string {
+	fmt.Println( &driverMap )
+	return driverSelect
 }
 
 func SetDriver( name string ){
+	fmt.Println( "Name is being set to '" + name + "'" )
 	if _ , found := driverMap[name] ; ! found {
 		panic( driver_name + " driver: '" + name + "'. Name not found")
 	}
@@ -43,10 +51,11 @@ func SetDriver( name string ){
 
 // GetEncryption will return the driver class associated with the curent driver setup
 func GetDriver( ) ( Driver  ){
-	if d, found := driverMap[name] ;  found {
+	fmt.Println( " the drive selectName to " + driverSelect )
+	if d, found := driverMap[driverSelect] ;  found {
 		return d
 	}
-	panic( driver_name + " driver: '" + name + "'. Name not found")
+	panic( driver_name + " driver: '" + driverSelect + "' name not found")
 }
 
 
@@ -54,7 +63,13 @@ func GetDriver( ) ( Driver  ){
 // data. The back-storage can be a flat file, database or document store.
 // The interfaces specify NO sql methods and flatten out operations
 type Driver interface {
-	FetchUserByGuid(  guid string )(   * model.User , int )
+	Open( name, connect string ) error
+	Close() error
+
+	GetRawHandle() interface{}
+
+	FetchUserByGuid(  guid string )(   * gus.User , int )
+
 	/*
 	FetchUserByToken( token string )(  * User , int )
 	FetchUserByEmail( email string )(  * User , int )
