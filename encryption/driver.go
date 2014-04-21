@@ -6,6 +6,7 @@ type Driver interface {
 
 	EncryptPassword( password string , salt string) string
 	SetInternalSalt( salt string )
+	ComparePasswords( hashedPassword , password , salt string ) bool
 }
 
 /*
