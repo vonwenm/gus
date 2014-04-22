@@ -9,7 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"time"
-
+	"strconv"
 	"github.com/cgentry/gus/encryption"
 )
 
@@ -21,6 +21,8 @@ const (
 	USER_PASSWORD_TOO_SIMPLE = iota
 )
 
+const USER_TIME_STR = "RFC3339"
+
 func init() {
 	userControl = new(UserControl)
 	userControl.SetMaxDuration("24h")
@@ -28,7 +30,7 @@ func init() {
 }
 
 // A control variable holds all of the values we need to control logging in
-var userControl *UserControl
+var userControl * UserControl
 
 type User struct {
 	Id       int64  // our internal ID
@@ -103,12 +105,12 @@ func createSalt(len int) string {
  * 		UserControl routines. These set the fields for timeout and control
  */
 
-func (uc *UserControl) SetMaxDuration(interval string) (err error) {
+func (uc * UserControl) SetMaxDuration(interval string) (err error) {
 	uc.MaximumSessionDuration, err = time.ParseDuration(interval)
 	return err
 }
 
-func (uc *UserControl) SetTimeout(interval string) (err error) {
+func (uc * UserControl) SetTimeout(interval string) (err error) {
 	uc.TimeSinceAuthentication, err = time.ParseDuration(interval)
 	return err
 }
@@ -140,7 +142,7 @@ func NewTestUser() User {
 }
 
 // Set, or reset, the user's ID. When an ID is set, the GUID is reset.
-func (user *User) SetID(id int64) *User {
+func (user * User) SetID(id int64) * User {
 	if id > 0 && user.Id == 0 {
 		user.Id = id
 	}
@@ -148,30 +150,97 @@ func (user *User) SetID(id int64) *User {
 }
 
 // SetName sets the fullname for the user
-func (user *User) SetName(name string) *User {
+func (user * User) SetName(name string) * User {
 	user.FullName = name
 	return user
 }
 
 // SetLoginAt - set the logged in date/time as now
-func (user *User) SetLoginAt() *User {
+func (user * User) SetLoginAt() * User {
 	user.LoginAt = time.Now()
 	return user
 }
 
 // GetCreatedAt to be now. The created at can only be done once
-func (user *User) GetCreatedAt() time.Time {
+func (user * User) GetCreatedAt() time.Time {
 	return user.CreatedAt
 }
 
+func ( user * User ) GetCreatedAtStr() string {
+	return user.CreatedAt.Format( USER_TIME_STR )
+}
+
 // SetUpdateAt will set the update time stamp to now
-func (user *User) SetUpdatedAt() *User {
+func (user * User) SetUpdatedAt() * User {
 	user.UpdatedAt = time.Now()
 	return user
 }
 
+func ( user * User ) GetUpdatedAt() time.Time {
+	return user.UpdatedAt
+}
+
+func ( user * User ) GetUpdatedAtStr() string {
+	return user.UpdatedAt.Format( USER_TIME_STR )
+}
+
+func ( user * User ) GetLastAuthAt() time.Time {
+	return user.LastAuthAt
+}
+
+func ( user * User ) GetLastAuthAtStr() string {
+	return user.LastAuthAt.Format( USER_TIME_STR )
+}
+
+func ( user * User ) GetDeletedAt() time.Time {
+	return user.DeletedAt
+}
+
+func ( user * User ) GetDeletedAtStr() string {
+	return user.DeletedAt.Format( USER_TIME_STR )
+}
+
+func ( user * User ) GetLastFailedAt() time.Time {
+	return user.LastFailedAt
+}
+
+func ( user * User ) GetLastFailedAtStr() string {
+	return user.LastFailedAt.Format( USER_TIME_STR )
+}
+
+func ( user * User ) GetFailCount() int {
+	return user.FailCount
+}
+
+func ( user * User ) GetFailCountStr() string {
+	return strconv.Itoa( user.FailCount )
+}
+
+func ( user * User ) GetMaxSession() time.Time {
+	return user.MaxSession
+}
+
+func ( user * User ) GetTimeoutAt() time.Time {
+	return user.TimeoutAt
+}
+
+func ( user * User ) GetTimeoutStr() string {
+	return user.TimeoutAt.Format( USER_TIME_STR )
+}
+
+func ( user * User ) GetMaxSessionStr() string {
+	return user.MaxSession.Format( USER_TIME_STR )
+}
+
+func ( user * User) GetFullName() string {
+	return user.FullName
+}
+
+func ( user * User ) GetLoginName() string {
+	return user.LoginName
+}
 // GetGuid will return the unique guid for this user
-func (user *User) GetGuid() string {
+func (user * User) GetGuid() string {
 	if user.Guid == "" {
 		guid := md5.New()
 		guid.Write([]byte(user.Domain))						// Add in the user's domain
@@ -184,27 +253,27 @@ func (user *User) GetGuid() string {
 }
 
 // SetDomain will set the domain name for this record.
-func (user *User) SetDomain(name string) *User {
+func (user * User) SetDomain(name string) * User {
 	user.Domain = name
 	return user
 }
 
 // GetDomain will get the domain name for a user
-func (user *User) GetDomain() string {
+func (user * User) GetDomain() string {
 	return user.Domain
 }
 
 // GetSalt will get the special account-specific magic number.
 // Normally used for salting various other functions, like password
-func (user *User) GetSalt() string {
+func (user * User) GetSalt() string {
 	return user.Salt
 }
 
-func (user *User) GetPassword() string {
+func (user * User) GetPassword() string {
 	return user.Password
 }
 
-func (user *User ) SetPassword( newPassword string ) int {
+func (user * User ) SetPassword( newPassword string ) int {
 	if user.Password != "" {
 		return USER_INVALID
 	}
@@ -214,12 +283,20 @@ func (user *User ) SetPassword( newPassword string ) int {
 }
 
 // GetToken will check the status of the user and return the token from the record
-func (user *User) GetToken() (string, int) {
+func (user * User) GetToken() (string, int) {
 	rtn := user.CheckExpirationDates()
 	return user.Token, rtn
 }
 
-func (user *User) GetEmail() string {
+func ( user * User ) GetLoginAt() time.Time {
+	return user.LoginAt
+}
+
+func ( user * User ) GetLoginAtStr() string {
+	return user.LoginAt.Format(USER_TIME_STR)
+}
+
+func (user * User) GetEmail() string {
 	return user.Email
 }
 
@@ -231,7 +308,7 @@ func ( user * User ) SetEmail( email string) error {
 // CreateToken will generate a short-use token for confirmation with authentication.
 // The token can be used as a ticket until it expires. Any program can gain access
 // to user information with it. Tokens can be saves
-func (user *User) CreateToken() string {
+func (user * User) CreateToken() string {
 	guid := md5.New()
 	guid.Write([]byte(user.GetGuid()))			// Always based on user's GUID
 	guid.Write([]byte(createSalt(20)))	// And a non-repeatable magic number
@@ -242,7 +319,7 @@ func (user *User) CreateToken() string {
 
 // CheckExpirationDates will see if the token is valid or expired. If it
 // is expired, the token will be cleared and the proper status will be set
-func (user *User) CheckExpirationDates() int {
+func (user * User) CheckExpirationDates() int {
 	if user.Token != "" && user.IsLoggedIn {
 		if user.LastAuthAt.Before(user.MaxSession) || user.LastAuthAt.Before(user.TimeoutAt) {
 			user.LastAuthAt = time.Now()
@@ -257,7 +334,7 @@ func (user *User) CheckExpirationDates() int {
 
 // Authenticate checks the user's token to see if it is valid. This is a post-login process
 // The user's record should be saved after this operation
-func (user *User) Authenticate(token string) int {
+func (user * User) Authenticate(token string) int {
 	if token != "" && user.IsLoggedIn {
 		if checkToken, err := user.GetToken(); err == USER_OK && token == checkToken {
 			return USER_OK
@@ -268,7 +345,7 @@ func (user *User) Authenticate(token string) int {
 
 
 // Login will authenticate the user and create the tokens required later
-func (user *User) Login(password string) (int, error) {
+func (user * User) Login(password string) (int, error) {
 
 	now := time.Now()                     // Get time marker all the times
 
@@ -302,7 +379,7 @@ func (user *User) Login(password string) (int, error) {
 }
 
 // Logout will mark the record as 'logged out' and the user will be removed from the system
-func (user *User) Logout() {
+func (user * User) Logout() {
 	user.Token = ""
 	user.IsLoggedIn = false
 	user.LogoutAt = time.Now()
@@ -311,7 +388,7 @@ func (user *User) Logout() {
 
 
 // ChangePassword to the new password. The user must be logged in for this
-func ( user *User ) ChangePassword( oldPassword, token, newPassword string) int {
+func ( user * User ) ChangePassword( oldPassword, token, newPassword string) int {
 	if user.Authenticate(token) == USER_OK {
 		t := encryption.GetDriver()
 		if t.EncryptPassword( oldPassword , user.Salt) == user.Password {
@@ -325,7 +402,7 @@ func ( user *User ) ChangePassword( oldPassword, token, newPassword string) int 
 	return USER_INVALID
 }
 
-func ( user *User ) CheckPassword(  testPassword string ) int {
+func ( user * User ) CheckPassword(  testPassword string ) int {
 	pwd := encryption.GetDriver().EncryptPassword(testPassword , user.Salt) // Encrypt password
 
 	if pwd != user.GetPassword() {
@@ -340,7 +417,7 @@ func ( user *User ) CheckPassword(  testPassword string ) int {
  *			-- UserReturn --
  */
 // GetUserReturn
-func (user *User) GetUserReturn() UserReturn {
+func (user * User) GetUserReturn() UserReturn {
 
 	user.Token = user.CreateToken()
 	rtn := UserReturn{}
@@ -354,7 +431,7 @@ func (user *User) GetUserReturn() UserReturn {
 
 }
 
-func (user *User) String() string {
+func (user * User) String() string {
 	return fmt.Sprintf( "Name: %s\nPassword: %s\nEmail: %s\n" ,
 		user.FullName , user.Password , user.Email )
 }

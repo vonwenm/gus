@@ -2,8 +2,8 @@ package sql
 
 import (
 	"database/sql"
-	"github.com/CGentry/gus"
-	"github.com/CGentry/gus/storage"
+	"github.com/cgentry/gus"
+	"github.com/cgentry/gus/storage"
 	"fmt"
 )
 
@@ -15,9 +15,7 @@ type StorageSql struct{
 const storage_ident = "sql"
 
 func init(){
-	fmt.Println( "Calling register with " + storage_ident )
 	storage.Register( storage_ident , &StorageSql{})
-	fmt.Println( "Storage name now: '" + storage.GetDriverName() + "'")
 }
 
 

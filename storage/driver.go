@@ -1,7 +1,7 @@
 package storage
 
 import (
-	"github.com/CGentry/gus"
+	"github.com/cgentry/gus"
 	"fmt"
 )
 
@@ -21,7 +21,6 @@ var driverSelect string = "unset"
 const driver_name = "Storage"
 
 func Register( name string , driver Driver ){
-	fmt.Println( "In register with " + name )
 	if driver == nil {
 		panic(driver_name + " driver: Register driver is nil")
 	}
@@ -36,13 +35,19 @@ func Register( name string , driver Driver ){
 	}
 }
 
+func ToString() string {
+	rtn := fmt.Sprintf("Length is %d\n" , len( driverMap))
+	for key := range driverMap {
+		rtn = rtn + key + "\n"
+	}
+	return rtn
+}
 func GetDriverName() string {
 	fmt.Println( &driverMap )
 	return driverSelect
 }
 
 func SetDriver( name string ){
-	fmt.Println( "Name is being set to '" + name + "'" )
 	if _ , found := driverMap[name] ; ! found {
 		panic( driver_name + " driver: '" + name + "'. Name not found")
 	}
@@ -68,7 +73,8 @@ type Driver interface {
 
 	GetRawHandle() interface{}
 
-	FetchUserByGuid(  guid string )(   * gus.User , int )
+	RegisterUser(     user * gus.User )	 	// Save initial routine
+	FetchUserByGuid(  guid string )(   * gus.User , error )
 
 	/*
 	FetchUserByToken( token string )(  * User , int )
