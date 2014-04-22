@@ -41,10 +41,11 @@ func ( t * StorageSql ) mapToUser( rows *sql.Rows )  []gus.User {
 	var users []gus.User
 	for rows.Next() {
 		user := new(gus.User)
-		
+
+
+
 		users = append( users, *user )
 
-		// Copy data over
 
 	}
 	return users
