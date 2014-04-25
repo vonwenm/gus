@@ -2,7 +2,7 @@ package sha512
 
 import (
 	"testing"
-	"github.com/cgentry/gus"
+	"github.com/cgentry/gus/record"
 	"github.com/cgentry/gus/encryption"
 
 )

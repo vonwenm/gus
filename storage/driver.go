@@ -1,7 +1,7 @@
 package storage
 
 import (
-	"github.com/cgentry/gus"
+	"github.com/cgentry/gus/record"
 	"fmt"
 )
 
@@ -43,7 +43,6 @@ func ToString() string {
 	return rtn
 }
 func GetDriverName() string {
-	fmt.Println( &driverMap )
 	return driverSelect
 }
 
@@ -56,7 +55,6 @@ func SetDriver( name string ){
 
 // GetEncryption will return the driver class associated with the curent driver setup
 func GetDriver( ) ( Driver  ){
-	fmt.Println( " the drive selectName to " + driverSelect )
 	if d, found := driverMap[driverSelect] ;  found {
 		return d
 	}
@@ -68,22 +66,20 @@ func GetDriver( ) ( Driver  ){
 // data. The back-storage can be a flat file, database or document store.
 // The interfaces specify NO sql methods and flatten out operations
 type Driver interface {
+
 	Open( name, connect string ) error
 	Close() error
 
-	GetRawHandle() interface{}
+	RegisterUser(     user * record.User )	 error 	// Save initial routine
 
-	RegisterUser(     user * gus.User )	 	// Save initial routine
-	FetchUserByGuid(  guid string )(   * gus.User , error )
+	FetchUserByGuid(  guid string )(   * record.User , error )
+	FetchUserByToken( token string )(  * record.User , error )
+
+	FetchUserByEmail( email string )(  * record.User , error )
+	FetchUserByLogin( login string )(  * record.User , error )
 
 	/*
-	FetchUserByToken( token string )(  * User , int )
-	FetchUserByEmail( email string )(  * User , int )
-	FetchUserByLogin( login string )(  * User , int )
-
 	ExpireSessionRecords()				// The implementer might want to do this in a go routine
-
-	RegisterUser(   user * User )	 	// Save initial routine
 
 	SaveUserLogin(  user *User ) error	// Save relevant data for being logged in
 	SaveUserAuth(   user *User ) error	// User just did an authentication - save info
@@ -92,7 +88,6 @@ type Driver interface {
 	GetSessionData(    user * User , name string ) ( []byte , int )
 	SaveSessionData(   user * User , name string , data *[]byte ) int
 	DeleteSessionData( user * User , name string )  int
-
 
 	GetUserData(     user * User ,  name string )( []byte , int )
 	SaveUserData(    user * User ,  name string , data *[]byte ) int

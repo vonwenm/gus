@@ -2,7 +2,7 @@ package sql
 
 import (
 	"database/sql"
-	"github.com/cgentry/gus"
+	"github.com/cgentry/gus/record"
 	"github.com/cgentry/gus/storage"
 	"fmt"
 )
@@ -43,13 +43,13 @@ func ( t *StorageSql ) Close() error {
 }
 
 // Convert db data to user structure. For this, we expect a 1:1 mapping
-func ( t * StorageSql ) mapToUser( rows *sql.Rows )  []gus.User {
+func ( t * StorageSql ) mapToUser( rows *sql.Rows )  []record.User {
 
-	var users []gus.User
+	var users []record.User
 
 	for rows.Next() {
 		cols,_ := rows.Columns()
-		//user := new(gus.User)
+		//user := new(record.User)
 
 		for name := range cols {
 			fmt.Printf( "Name is %s\n" , name)
@@ -60,6 +60,6 @@ func ( t * StorageSql ) mapToUser( rows *sql.Rows )  []gus.User {
 	return users
 }
 
-func (t *StorageSql ) FetchUserByGuid(  guid string )(   * gus.User , int ){
+func (t *StorageSql ) FetchUserByGuid(  guid string )(   * record.User , int ){
 	return nil , storage.BANK_USER_NOT_FOUND
 }
