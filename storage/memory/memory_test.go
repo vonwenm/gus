@@ -19,6 +19,7 @@ func TestRegister( t * testing.T ){
 	user.SetDomain("Register")
 	user.SetToken("TestToken")
 	user.SetName( "Just a test name")
+	user.SetEmail( "et@home.com")
 	drive.RegisterUser( user )		// Register new user
 
 	user2, err := drive.FetchUserByGuid(  user.GetGuid() )
@@ -42,4 +43,17 @@ func TestRegister( t * testing.T ){
 		t.Errorf( "User2 doesn't look like User3")
 	}
 	fmt.Println( user3.String() )
+}
+
+func TestSaveSessionData( t * testing.T ){
+	drive := storage.GetDriver()
+	user, err := drive.FetchUserByEmail( "et@home.com")
+	if err != nil {
+		t.Errorf( "Could not fetch by email: %s" , err )
+	}
+	data := []byte("This is the time for all sessions to end")
+	err = drive.SaveSessionData( user , "**TEST**" , &data )
+	if err != nil {
+		t.Errorf("Could not save user: %s" , err )
+	}
 }

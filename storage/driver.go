@@ -68,9 +68,16 @@ func GetDriver( ) ( Driver  ){
 type Driver interface {
 
 	Open( name, connect string ) error
+	CreateStore() error
 	Close() error
 
 	RegisterUser(     user * record.User )	 error 	// Save initial routine
+
+	SaveUserLogin(    user * record.User ) error	// Save relevant data for being logged in
+	SaveUserAuth(     user * record.User ) error	// User just did an authentication - save info
+	SaveUserLogoff(   user * record.User ) error	// User just logged off
+
+	SaveSessionData(  user * record.User , name string , data *[]byte ) error
 
 	FetchUserByGuid(  guid string )(   * record.User , error )
 	FetchUserByToken( token string )(  * record.User , error )
@@ -78,20 +85,18 @@ type Driver interface {
 	FetchUserByEmail( email string )(  * record.User , error )
 	FetchUserByLogin( login string )(  * record.User , error )
 
+
+
 	/*
-	ExpireSessionRecords()				// The implementer might want to do this in a go routine
+	ExpireSessionData()				// The implementer might want to do this in a go routine
 
-	SaveUserLogin(  user *User ) error	// Save relevant data for being logged in
-	SaveUserAuth(   user *User ) error	// User just did an authentication - save info
-	SaveUserLogoff( user *User)	error	// User just logged off
+	GetSessionData(    user * record.User , name string ) ( []byte , int )
 
-	GetSessionData(    user * User , name string ) ( []byte , int )
-	SaveSessionData(   user * User , name string , data *[]byte ) int
-	DeleteSessionData( user * User , name string )  int
+	DeleteSessionData( user * record.User , name string )  int
 
-	GetUserData(     user * User ,  name string )( []byte , int )
-	SaveUserData(    user * User ,  name string , data *[]byte ) int
-	DeleteUserData(  user * User ,  name string ) int
+	GetUserData(     user * record.User ,  name string )( []byte , int )
+	SaveUserData(    user * record.User ,  name string , data *[]byte ) int
+	DeleteUserData(  user * record.User ,  name string ) int
 	*/
 
 }

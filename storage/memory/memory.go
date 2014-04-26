@@ -7,7 +7,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"database/sql"
 	"strconv"
-	"strings"
+	//"strings"
 	"time"
 	"errors"
 )
@@ -19,46 +19,7 @@ type StorageMem struct{
 	lastError    error
 }
 
-func loadSql(dbh * sql.DB) {
-	sql := `
-        create table User (
-        	Guid text primary key,
-        	FullName text,
-        	Email    text,
 
-
-        	Domain    text,
-        	LoginName text,
-        	Password  text,
-        	Token     text,
-
-        	Salt text,
-
-        	IsActive   integer,
-        	IsLoggedIn integer,
-
-        	LoginAt      text,
-        	LogoutAt     text,
-        	LastAuthAt   text,
-        	LastFailedAt text,
-        	FailCount    integer ,
-
-        	MaxSessionAt text,
-        	TimeoutAt  text,
-
-        	CreatedAt text,
-        	UpdatedAt text,
-        	DeletedAt text);
-        create unique index uemail on User(Email);
-        create unique index ulname on User(LoginName);
-        create index ufullname on User(FullName);
-        create index utoken on User(Token);
-        `
-	_, err := dbh.Exec(sql)
-	if err != nil {
-		fmt.Println(err)
-	}
-}
 
 
 func init() {
@@ -66,8 +27,11 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-	loadSql(dbh)
-	storage.Register(storage_ident, &StorageMem{ db: dbh })
+	store := &StorageMem{ db: dbh }
+	if err := store.CreateStore(); err != nil {
+		panic( err )
+	}
+	storage.Register(storage_ident, store )
 }
 
 func (t *StorageMem) GetRawHandle() interface{} {
@@ -91,24 +55,6 @@ func (t * StorageMem) Open(name, connect string) error {
 func (t *StorageMem) Close() error {
 	t.lastError = t.db.Close()
 	return t.lastError
-}
-
-// Convert db data to user structure. For this, we expect a 1:1 mapping
-func (t * StorageMem) mapToUser(rows *sql.Rows) []record.User {
-
-	var users []record.User
-
-	for rows.Next() {
-		cols, _ := rows.Columns()
-		//user := new(record.User)
-
-		for name := range cols {
-			fmt.Printf("Name is %s\n", name)
-		}
-		// Copy data over
-
-	}
-	return users
 }
 
 func (t *StorageMem) RegisterUser(user * record.User) error {
@@ -137,62 +83,6 @@ func (t *StorageMem) RegisterUser(user * record.User) error {
 	return err
 }
 
-func mapColumnsToUser(rows * sql.Rows) []*record.User {
-
-	var allUsers [] *record.User
-	columns, _ := rows.Columns()
-	count := len(columns)
-	values := make([]interface{}, count)
-	vpoint := make([]interface{}, count)
-	var vstr string
-
-	for rows.Next() {
-		for i, _ := range columns {
-			vpoint[i] = &values[i]
-		}
-		user := record.NewUser("")
-		rows.Scan(vpoint...)
-
-		for i , col := range columns {
-			val := values[i]
-			if b, ok := val.([]byte) ; ok {
-				vstr = string(b)
-
-
-			switch strings.ToLower(col) {
-				case "fullname" : user.SetName( vstr )
-				case "email"	: user.SetEmail( vstr )
-				case "guid"     : user.SetGuid( vstr )
-
-				case "domain"	: user.SetDomain( vstr )
-				case "password" : user.SetPasswordStr( vstr )
-				case "token"    : user.SetToken( vstr )
-
-				case "salt"	    : user.SetSalt( vstr )
-				case "isactive"	: user.SetIsActive( StrToBool(vstr ) )
-				case "isloggedin" : user.SetIsLoggedIn( StrToBool( vstr) )
-
-				case "loginat"	: user.SetLoginAt( StrToTime(  vstr ) )
-				case "logoutat" : user.SetLogoutAt( StrToTime(  vstr ) )
-				case "lastfailedat" : user.SetLastFailedAt( StrToTime(vstr) )
-				case "failcount" : user.SetFailCount( StrToInt(vstr) )
-
-				case "maxsessionat": user.SetMaxSessionAt( StrToTime(vstr ) )
-				case "timeoutat" : user.SetTimeoutAt( StrToTime(  vstr ) )
-
-				case "createdat" : user.SetCreatedAt( StrToTime(  vstr ) )
-				case "updatedat" : user.SetUpdatedAt( StrToTime(  vstr ) )
-				case "deletedat" : user.SetDeletedAt( StrToTime(  vstr ) )
-				case "loginname" : user.SetLoginName( vstr )
-
-			}
-			}
-		} // End columns
-
-		allUsers = append(allUsers, user)
-	}
-	return allUsers
-}
 
 func (t *StorageMem) fetchUserByField( field, val string ) ( * record.User, error ){
 	cmd := fmt.Sprintf( `SELECT * FROM User WHERE %s = ?` , field )
