@@ -77,7 +77,13 @@ type Driver interface {
 	SaveUserAuth(     user * record.User ) error	// User just did an authentication - save info
 	SaveUserLogoff(   user * record.User ) error	// User just logged off
 
-	SaveSessionData(  user * record.User , name string , data *[]byte ) error
+	SaveSessionData(  user * record.User , name string , data * string  , headers * HeaderMap ) error
+	GetSessionData(   user * record.User , name string ) ( string, HeaderMap , error )
+	DeleteSessionData(user * record.User , name string )  error
+
+	SaveUserData(     user * record.User , name string , data * string  , headers * HeaderMap ) error
+	GetUserData(      user * record.User , name string ) ( string, HeaderMap , error )
+	DeleteUserData(   user * record.User , name string ) error
 
 	FetchUserByGuid(  guid string )(   * record.User , error )
 	FetchUserByToken( token string )(  * record.User , error )
@@ -85,19 +91,9 @@ type Driver interface {
 	FetchUserByEmail( email string )(  * record.User , error )
 	FetchUserByLogin( login string )(  * record.User , error )
 
+	//ExpireSessionData()				// The implementer might want to do this in a go routine
 
 
-	/*
-	ExpireSessionData()				// The implementer might want to do this in a go routine
-
-	GetSessionData(    user * record.User , name string ) ( []byte , int )
-
-	DeleteSessionData( user * record.User , name string )  int
-
-	GetUserData(     user * record.User ,  name string )( []byte , int )
-	SaveUserData(    user * record.User ,  name string , data *[]byte ) int
-	DeleteUserData(  user * record.User ,  name string ) int
-	*/
 
 }
 
