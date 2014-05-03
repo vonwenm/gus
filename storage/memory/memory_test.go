@@ -10,12 +10,11 @@ import (
 	"testing"
 )
 
-func TestStart(t *testing.T) {
-	fmt.Println("OK")
-}
-
 func TestRegister(t *testing.T) {
+
 	drive := storage.GetDriver()
+	drive.Open( "sqlite3" , ":memory:")
+	drive.CreateStore()
 
 	user := record.NewTestUser()
 	user.SetDomain("Register")
@@ -45,6 +44,20 @@ func TestRegister(t *testing.T) {
 		t.Errorf("User2 doesn't look like User3")
 	}
 	fmt.Println(user3.String())
+}
+
+func TestDuplicateKey(t *testing.T) {
+
+	drive := storage.GetDriver()
+	user := record.NewTestUser()
+	user.SetDomain("Register")
+	user.SetToken("TestToken")
+	user.SetName("Just a test name")
+	user.SetEmail("et@home.com")
+	err := drive.RegisterUser(user) // Register new user
+	if err == nil {
+		t.Errorf( "Did not get the error (601) of duplicate mail")
+	}
 }
 
 func TestSaveSessionData(t *testing.T) {
