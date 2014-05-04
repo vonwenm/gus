@@ -3,12 +3,15 @@ package memory
 import (
 	"database/sql"
 	"sync"
+	"strings"
+	//"fmt"
 )
 
 /* The fields that we save. Defined as constants so I don't have to retype them */
 
 const (
 
+	DB_FIELD_COUNT_UPDATE = 20
 	DB_FIELD_LIST_UPDATE = `
             FullName,     Email,
 			Domain,       LoginName,    Password,
@@ -16,15 +19,19 @@ const (
 			IsLoggedIn,   LoginAt,      LogoutAt,
 			LastAuthAt,   LastFailedAt, FailCount,
 			MaxSessionAt, TimeoutAt,    CreatedAt,
+			UpdatedAt,    DeletedAt,    IsSystem`
 
-			UpdatedAt,    DeletedAt`
+	DB_FIELD_COUNT_STATUS = 13
 	DB_FIELD_LIST_STATUS = `
 			IsActive,	  IsLoggedIn,   LoginAt,
 			LogoutAt,	  LastAuthAt,   LastFailedAt,
 			FailCount,    MaxSessionAt, TimeoutAt,
-			CreatedAt,    UpdatedAt,    DeletedAt`
+			CreatedAt,    UpdatedAt,    DeletedAt,
+			IsSystem`
 
+	DB_FIELD_COUNT_ALL = DB_FIELD_COUNT_UPDATE + 1
 	DB_FIELD_LIST_ALL = `Guid, ` + DB_FIELD_LIST_UPDATE
+
 )
 
 
@@ -41,7 +48,7 @@ var mutex sync.Mutex								 // For concurrency
 
 func (t *StorageMem) GetRegisterSql() (* sql.Stmt , error) {
 	sql := `INSERT INTO User (` + DB_FIELD_LIST_ALL + `)
-           VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?, ?, ?, ?, ?,?, ?, ?, ?, ?)`
+		    VALUES (` + strings.Repeat( "?, ",  DB_FIELD_COUNT_ALL - 1) + `? )`
 	return t.lockAndLoad( &mutex, MAP_REGISTER_INSERT , sql )
 }
 

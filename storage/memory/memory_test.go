@@ -7,13 +7,24 @@ import (
 	"fmt"
 	"github.com/cgentry/gus/record"
 	"github.com/cgentry/gus/storage"
+	. "github.com/smartystreets/goconvey/convey"
 	"testing"
+	"os"
 )
+
+const STORE_LOCAL="/tmp/store.tst"
+
+
+func TestSetup( t *testing.T ){
+	if STORE_LOCAL != ":memory:" {
+		os.Remove( STORE_LOCAL )
+	}
+}
 
 func TestRegister(t *testing.T) {
 
 	drive := storage.GetDriver()
-	drive.Open( "sqlite3" , ":memory:")
+	drive.Open( "sqlite3" , STORE_LOCAL)
 	drive.CreateStore()
 
 	user := record.NewTestUser()
@@ -63,61 +74,66 @@ func TestDuplicateKey(t *testing.T) {
 func TestSaveSessionData(t *testing.T) {
 	drive := storage.GetDriver()
 	user, err := drive.FetchUserByEmail("et@home.com")
-	if err != nil {
-		t.Errorf("Could not fetch by email: %s", err)
-	}
-	data := "This is the time for all sessions to end"
-	var headers = storage.HeaderMap{"one": "1", "two": "2"}
-	if err = drive.SaveSessionData(user, "**TEST**", &data, &headers); err != nil {
-
-		t.Errorf("Could not save user: %s", err)
-	}
-
-	newdata, newheaders, err := drive.GetSessionData(user, "**TEST**")
-	if data != newdata {
-		t.Errorf("Data does not match: '%s' != '%s'", data, newdata)
-	}
-	for key, value := range headers {
-		if cval, found := newheaders[key]; found {
-			if cval != value {
-				t.Errorf("Value return '%s' does not match expected '%s", cval, value)
-			}
-		} else {
-			t.Errorf("The key '%s' (value) not found in return map", key)
+	Convey( "Test fetching data" , t , func(){
+		So( err , ShouldBeNil)
+		So( user, ShouldNotBeNil )
+	})
+	Convey( "Altering and saving data" , t , func(){
+		data := "This is the time for all sessions to end"
+		var headers = storage.HeaderMap{"one": "1", "two": "2"}
+		So( err , ShouldBeNil )
+		err := drive.SaveSessionData(user, "**TEST**", &data, &headers)
+		So( err, ShouldBeNil )
+		newdata, newheaders, err := drive.GetSessionData(user, "**TEST**")
+		if data != newdata {
+			t.Errorf("Data does not match: '%s' != '%s'", data, newdata)
 		}
-	}
+		for key, value := range headers {
+			if cval, found := newheaders[key]; found {
+				if cval != value {
+					t.Errorf("Value return '%s' does not match expected '%s", cval, value)
+				}
+			} else {
+				t.Errorf("The key '%s' (value) not found in return map", key)
+			}
+		}
+	})
+
 }
 
 
 func TestSaveUserData(t *testing.T) {
 	drive := storage.GetDriver()
 	user, err := drive.FetchUserByEmail("et@home.com")
-	if err != nil {
-		t.Errorf("Could not fetch by email: %s", err)
-	}
+	Convey( "Check fetching data ", t , func(){
+		So( err, ShouldBeNil )
+		So( user, ShouldNotBeNil)
+	})
 	data := "Keep me around! I want to LIVE"
 	var headers = storage.HeaderMap{"one": "1", "two": "2"}
-	if err = drive.SaveUserData(user, "**TEST**", &data, &headers); err != nil {
+	err = drive.SaveUserData(user, "**TEST**", &data, &headers)
 
-		t.Errorf("Could not save user: %s", err)
-	}
-
-	newdata, newheaders, err := drive.GetUserData(user, "**TEST**")
-	if err != nil {
-		t.Errorf("GetUserData error: %s" , err )
-	}
-	if data != newdata {
-		t.Errorf("Data does not match: '%s' != '%s'", data, newdata)
-	}
-	for key, value := range headers {
-		if cval, found := newheaders[key]; found {
-			if cval != value {
-				t.Errorf("Value return '%s' does not match expected '%s", cval, value)
-			}
-		} else {
-			t.Errorf("The key '%s' (value) not found in return map", key)
+	Convey( "Check saved data" , t , func(){
+		So( err , ShouldBeNil)
+		newdata, newheaders, err := drive.GetUserData(user, "**TEST**")
+		So( err, ShouldBeNil)
+		
+		if data != newdata {
+			t.Errorf("Data does not match: '%s' != '%s'", data, newdata)
 		}
-	}
+		for key, value := range headers {
+			if cval, found := newheaders[key]; found {
+				if cval != value {
+					t.Errorf("Value return '%s' does not match expected '%s", cval, value)
+				}
+			} else {
+				t.Errorf("The key '%s' (value) not found in return map", key)
+			}
+		}
+	})
+
+
+
 }
 
 func TestDeleteSessionData( t *testing.T ){

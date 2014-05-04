@@ -51,6 +51,8 @@ func mapColumnsToUser(rows *sql.Rows) []*record.User {
 					user.SetIsActive(StrToBool(vstr))
 				case "isloggedin":
 					user.SetIsLoggedIn(StrToBool(vstr))
+				case "issystem":
+					user.SetIsSystem( StrToBool(vstr))
 
 				case "loginat":
 					user.SetLoginAt(StrToTime(vstr))

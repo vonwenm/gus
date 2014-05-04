@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"database/sql"
 	"time"
-	"fmt"
+	//"fmt"
 	"errors"
 )
 
@@ -21,14 +21,14 @@ func (t *StorageMem) RegisterUser(user *record.User) error {
 			strconv.FormatBool(user.IsLoggedIn), user.GetLoginAtStr(), user.GetLogoutAtStr(),
 			user.GetLastAuthAtStr(), user.GetLastFailedAtStr(), user.GetFailCountStr(),
 			user.GetMaxSessionAtStr(), user.GetTimeoutStr(), user.GetCreatedAtStr(),
-			user.GetUpdatedAtStr(), user.GetDeletedAtStr())
+			user.GetUpdatedAtStr(), user.GetDeletedAtStr() , strconv.FormatBool(user.IsSystem ))
 
 	}
 	if err == nil {                                // Some error occured...see if there is a duplicate
 		return nil
 	}
 	code, err2 := t.CheckUserExists(user)    // Check to see if user exists
-	fmt.Printf("Code is %d and msg is %s\n", code, err2)
+
 	if code != service.CODE_USER_DOESNT_EXIST {    // Is not an invalid gUID
 		return err2
 	}

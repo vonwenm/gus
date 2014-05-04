@@ -9,7 +9,7 @@ import (
 
 func TestGenerate( t *testing.T ){
 
-	user := gus.NewTestUser()
+	user := record.NewTestUser()
 	pwd := encryption.GetDriver().EncryptPassword(  "hello" , user.GetSalt() )
 	if pwd == "hello" {
 		t.Errorf("pwd didn't get encrypted")
@@ -17,7 +17,7 @@ func TestGenerate( t *testing.T ){
 }
 
 func TestCompare( t *testing.T ){
-	user := gus.NewTestUser()
+	user := record.NewTestUser()
 	pwd  := encryption.GetDriver().EncryptPassword( "123456" , user.GetSalt() )
 
 	if ! encryption.GetDriver().ComparePasswords( pwd , "123456" , user.GetSalt() ) {
@@ -27,7 +27,7 @@ func TestCompare( t *testing.T ){
 }
 
 func TestIsLongEnough( t *testing.T ){
-	user := gus.NewTestUser()
+	user := record.NewTestUser()
 	pwd := encryption.GetDriver().EncryptPassword(  "hello" , user.GetSalt() )
 	pwdLen := len( pwd )
 	if pwdLen < 60  {
@@ -36,9 +36,9 @@ func TestIsLongEnough( t *testing.T ){
 }
 
 func TestSimilarUserDifferntPwd( t *testing.T ){
-	user := gus.NewTestUser()
+	user := record.NewTestUser()
 	pwd  := encryption.GetDriver().EncryptPassword( "123456" , user.GetSalt() )
-	user2 := gus.NewTestUser()
+	user2 := record.NewTestUser()
 	pwd2 := encryption.GetDriver().EncryptPassword( "123456" , user2.GetSalt() )
 	if( pwd == pwd2 ){
 		t.Errorf( "Passwords for different users should not match: '%s' and '%s'" , pwd , pwd2 )
@@ -46,7 +46,7 @@ func TestSimilarUserDifferntPwd( t *testing.T ){
 }
 
 func TestAfterChangingSalt( t *testing.T ){
-	user := gus.NewTestUser()
+	user := record.NewTestUser()
 	pwd  := encryption.GetDriver().EncryptPassword( "123456" , user.GetSalt() )
 	encryption.GetDriver().SetInternalSalt( "hello - this should screw up password" )
 	pwd2 := encryption.GetDriver().EncryptPassword( "123456" , user.GetSalt() )

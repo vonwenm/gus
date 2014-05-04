@@ -22,6 +22,7 @@ package memory
 
 			IsActive   integer,
 			IsLoggedIn integer,
+			IsSystem   integer,
 
 			LoginAt      text,
 			LogoutAt     text,

@@ -36,6 +36,7 @@ type User struct {
 	Id       int  // our internal ID
 	FullName string // Simple full name
 	Email    string // User's primary email
+	IsSystem bool   // User is INTERNAL or EXTERNAL
 
 	Guid string // Simple, unique user ID for external use
 
@@ -103,9 +104,9 @@ type UserControl struct {
  *				INTERNAL ROUTINES
  */
 
-// createSalt will create a magic number for use with other functions,
+// CreateSalt will create a magic number for use with other functions,
 // like creating a GUID or a token.
-func createSalt(len int) string {
+func CreateSalt(len int) string {
 	b := make([]byte, len)
 	_, err := rand.Read(b)
 	if err != nil {
@@ -140,9 +141,10 @@ func NewUser(domain string) * User {
 	user := new( User )
 	user.CreatedAt = time.Now()
 	user.UpdatedAt = user.CreatedAt
+	user.IsSystem  = false
 
 	user.SetDomain(domain)
-	user.Salt = createSalt(20)
+	user.Salt = CreateSalt(20)
 	user.Token = ""
 	return user
 }
@@ -161,7 +163,7 @@ func NewTestUser() * User {
 func (user * User) CreateToken() string {
 	guid := md5.New()
 	guid.Write([]byte(user.GetGuid()))			// Always based on user's GUID
-	guid.Write([]byte(createSalt(20)))	// And a non-repeatable magic number
+	guid.Write([]byte(CreateSalt(20)))	// And a non-repeatable magic number
 	out := guid.Sum(nil)
 	return fmt.Sprintf("%x-%x-%x-%x-%x", out[0:4], out[4:6], out[6:8], out[8:10], out[10:len(out)])
 }

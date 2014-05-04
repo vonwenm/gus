@@ -106,6 +106,11 @@ func ( user * User ) SetIsLoggedIn( val bool ) * User {
 	return user
 }
 
+func ( user * User ) SetIsSystem( val bool ) * User {
+	user.IsSystem = val
+	return user
+}
+
 func ( user * User ) SetLogoutAt( t time.Time ) * User {
 	user.LogoutAt = t
 	return user

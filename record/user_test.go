@@ -2,6 +2,8 @@ package record
 
 import (
 	"testing"
+	_ "github.com/cgentry/gus/encryption/drivers/plaintext"
+	. "github.com/smartystreets/goconvey/convey"
 	//"fmt"
 )
 
@@ -27,13 +29,10 @@ func TestAuthenticate( t * testing.T ){
 	tuser.SetID( 1234)
 	tuser.SetPassword( pwd )
 
-	rtn , err := tuser.Login( pwd )
 
-	if err != nil {
-		t.Error( err )
-	}
-
-	if rtn != USER_OK {
-		t.Errorf( "Invalid password %d\n" , rtn )
-	}
+	Convey( "Authenticatin test" , t , func(){
+		rtn , err := tuser.Login( pwd )
+		So( err , ShouldBeNil )
+		So( rtn, ShouldEqual , USER_OK )
+	})
 }
