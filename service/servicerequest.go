@@ -8,6 +8,23 @@ import (
 	"sort"
 )
 
+const (
+
+	KEY_CMD		= "cmd"
+	KEY_DOMAIN	= "domain"
+	KEY_CALLER	= "caller"
+
+	KEY_HMAC	= "hmac"
+	KEY_EMAIL	= "email"
+	KEY_PWD		= "pwd"
+	KEY_TOKEN	= "token"
+	KEY_NAME	= "name"
+	KEY_LOGIN	= "login"
+	KEY_GUID	= "guid"
+)
+
+var StandardPathValues = []string{ KEY_CMD , KEY_DOMAIN, KEY_CALLER }
+
 /*
  *	A ServiceRequest is a simple map that contains all the request parameters as key/value pairs
  *
@@ -15,6 +32,8 @@ import (
 type ServiceRequest struct {
 	Parameters	map[string]string
 	PathKeys    []string
+	QueryKeys	[]string
+	ServerSecret string
 }
 
 func NewServiceRequest() ServiceRequest {
@@ -28,6 +47,15 @@ func (sr * ServiceRequest) SetPathKeys( paths []string ) * ServiceRequest {
 
 func (sr * ServiceRequest) GetPathKeys( ) []string  {
 	return sr.PathKeys
+}
+
+func (sr * ServiceRequest) SetQueryKeys( queryNames []string ) * ServiceRequest {
+	sr.QueryKeys = queryNames
+	return sr
+}
+
+func (sr * ServiceRequest) GetQueryKeys( ) []string  {
+	return sr.QueryKeys
 }
 
 // Return all of the keys from the ServiceRequest in a sorted array.

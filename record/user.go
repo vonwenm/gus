@@ -79,21 +79,7 @@ func ( u * User ) String() string {
 
 }
 
-// Record passed back to the caller
-type UserReturn struct {
-	Guid  string // External ID
-	Token string // Internal user access token
 
-	FullName string
-	Email    string
-
-	LoginAt    string
-	LastAuthAt string
-
-	TimeoutAt time.Time // Required to authenticate by
-
-	CreatedAt string
-}
 
 type UserControl struct {
 	MaximumSessionDuration  time.Duration
@@ -264,24 +250,6 @@ func ( user * User ) CheckPassword(  testPassword string ) int {
 }
 
 
-/*
- *			PUBLIC ROUTINES
- *			-- UserReturn --
- */
-// GetUserReturn
-func (user * User) GetUserReturn() UserReturn {
-
-	user.Token = user.CreateToken()
-	rtn := UserReturn{}
-	rtn.Guid = user.GetGuid()
-	rtn.Token = user.Token
-	rtn.LoginAt = user.LoginAt.Format(time.RFC3339)
-	rtn.LastAuthAt = user.LoginAt.Format(time.RFC3339)
-	rtn.CreatedAt = user.CreatedAt.Format(time.RFC3339)
-
-	return rtn
-
-}
 
 
 

@@ -5,17 +5,18 @@ package service
 
 // General call errors and returns
 const (
-	CODE_OK                 = iota
-	CODE_USER_DOESNT_EXIST  = iota
-	CODE_INVALID_GUID       = iota
-	CODE_INVALID_HMAC       = iota
-	CODE_INVALID_REQUEST    = iota
-	CODE_INVALID_PARAMETERS = iota
+	CODE_OK                 = 200
+
 )
 
 // Caller errors are in the 400 range
 const (
 	CODE_BAD_CALL = 400 + iota
+	CODE_USER_DOESNT_EXIST  = iota
+	CODE_INVALID_GUID       = iota
+	CODE_INVALID_HMAC       = iota
+	CODE_INVALID_REQUEST    = iota
+	CODE_INVALID_PARAMETERS = iota
 )
 
 // Internal errors are in the 500 errors

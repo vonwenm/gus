@@ -5,7 +5,6 @@ import (
 	"github.com/cgentry/gus/service"
 	"strconv"
 	"database/sql"
-	"time"
 	//"fmt"
 	"errors"
 )
@@ -62,29 +61,4 @@ func (t * StorageMem) CheckUserExists(user *record.User) ( int , error ) {
 	}
 
 	return service.CODE_INTERNAL_ERROR, err
-}
-
-func StrToTime(t string) time.Time {
-	if val, err := time.Parse(record.USER_TIME_STR, t); err == nil {
-		return val
-	}
-
-	return time.Unix(0, 0)
-
-}
-
-func StrToBool(t string) bool {
-	if val, err := strconv.ParseBool(t); err == nil {
-		return val
-	}
-	return false
-}
-
-func StrToInt(t string) int {
-	if val, err := strconv.ParseInt(t, 10, 32); err == nil {
-		if val >= 0 {
-			return int(val)
-		}
-	}
-	return 0
 }
