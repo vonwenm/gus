@@ -10,6 +10,8 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
+	"io/ioutil"
+	"strings"
 	"time"
 )
 
@@ -217,8 +219,40 @@ func TestCreateHash_embedded_characters(t * testing.T) {
 			So(err, ShouldBeNil)
 			So(CompareHmac(key, &sr), ShouldBeTrue)
 		})
-
 }
 
+func TestCreateHash_body(t * testing.T) {
 
+	cmd    := "register"
+
+	secret := record.CreateSalt(50)
+	tm	   := time.Now()
+	myDate := tm.Format(time.RFC1123)
+
+	h := hmac.New(sha256.New, []byte(secret))         // Start the hmac up
+	h.Write([]byte("/" + cmd + "/domain/name"))       // Adding in the fresh command hash
+	h.Write([]byte("pwdsomethingusercharles" + myDate))
+	h.Write( []byte("body"))
+	myHmac := base64.StdEncoding.EncodeToString(h.Sum(nil))
+
+
+	url := fmt.Sprintf(`http://example.com/%s/domain/name?user=charles gentry&pwd=something&date=%s&hmac=%s`,
+		cmd, myDate , myHmac )
+
+	req, err := http.NewRequest("GET", url, ioutil.NopCloser(strings.NewReader("body")))
+	Convey("Test basic hash creation", t, func() {
+		So( err, ShouldBeNil )
+	})
+
+	sr := NewServiceRequest()
+	sr.Add("cmd", cmd).Add("user", "charles").Add("pwd", "something").Add("hmac", myHmac)
+	sr.SetPathKeys([]string{"cmd" , })
+	sr.SetQueryKeys( []string{ "pwd" , "user" , "hmac"})
+
+	Convey("Test basic hash creation", t, func() {
+		key, err := CreateHmac(secret, req, &sr)
+		So(err, ShouldBeNil)
+		So(CompareHmac(key, &sr), ShouldBeTrue)
+	})
+}
 

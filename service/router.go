@@ -67,7 +67,7 @@ func ServiceRegister(c *gofig.Configuration , w http.ResponseWriter, r *http.Req
 //
 
 // ParseParms expects a list of path parameters and a list of query parameters that are required.
-// From the query parameters, only thos that are included will be split
+// From the query parameters, only those that are included will be split
 func ParseParms(r *http.Request , list []string , qparam []string) (ServiceRequest , error) {
 	sr := NewServiceRequest()
 	sr.SetPathKeys(list )
@@ -90,6 +90,13 @@ func ParseParms(r *http.Request , list []string , qparam []string) (ServiceReque
 			return sr, errors.New("Missing query parameter '"+key+"'")
 		}else {
 			sr.Add( key , query.Get(key) )
+		}
+	}
+
+	// Time to add in headers that match the pattern X-Srq-
+	for key,value := range r.Header {
+		if strings.HasPrefix( value , `X-Srq-`){
+			sr.Add( key , value );
 		}
 	}
 	return sr, nil

@@ -6,15 +6,16 @@ package service
 
 import (
 	"sort"
+	"strings"
 )
 
 const (
 
-	KEY_CMD		= "cmd"
-	KEY_DOMAIN	= "domain"
-	KEY_CALLER	= "caller"
+	KEY_CMD		= "cmd"					// The requested action
+	KEY_DOMAIN	= "domain"				// Logical group. If not present, "default"
+	KEY_CALLER	= "caller"				// What is the ID of the caller
+	KEY_HMAC	= "hmac"				// Checksum
 
-	KEY_HMAC	= "hmac"
 	KEY_EMAIL	= "email"
 	KEY_PWD		= "pwd"
 	KEY_TOKEN	= "token"
@@ -30,14 +31,39 @@ var StandardPathValues = []string{ KEY_CMD , KEY_DOMAIN, KEY_CALLER }
  *
  */
 type ServiceRequest struct {
-	Parameters	map[string]string
+	Parameters	map[string]string			// Encoded as either a=b&c=d or in header
+	Hmac		string						// Hmac that was detected/set
+	Date		string						// Date that was detected/set
+
 	PathKeys    []string
 	QueryKeys	[]string
+	HeaderKeys  []string
+
 	ServerSecret string
 }
 
 func NewServiceRequest() ServiceRequest {
 	return ServiceRequest{ Parameters : make(map[string]string) }
+}
+
+func( sr * ServiceRequest ) SetIfHmac( key , value string ) bool {
+	if key == `hmac` || strings.ToLower( key ) == `x-srq-hmac` {
+		sr.Hmac = value
+		return true
+	}
+	return false
+}
+
+func( sr * ServiceRequest ) SetIfDate( key , value string ) bool {
+	if key == `date` || strings.ToLower( key ) == `x-srq-date` {
+		sr.Date = value
+		return true
+	}
+	return false
+}
+
+func( sr * ServiceRequest ) GetHmac( ) ( string , bool ){
+	return sr.Hmac , ( sr.Hmac == `` )
 }
 
 func (sr * ServiceRequest) SetPathKeys( paths []string ) * ServiceRequest {
@@ -72,7 +98,9 @@ func (sr * ServiceRequest) SortedKeys() []string {
 
 // Add a new key and value to the service map. Use of this will protect against structure changes
 func (sr * ServiceRequest) Add(key, value string) * ServiceRequest {
-	sr.Parameters[key] = value
+	if ! sr.SetIfHmac( key , value ){
+		sr.Parameters[key] = value
+	}
 	return sr
 }
 
