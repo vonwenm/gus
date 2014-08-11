@@ -5,8 +5,13 @@
 package service
 
 import (
+
+	"io/ioutil"
+	"net/http"
 	"sort"
 	"strings"
+
+	"github.com/cgentry/gav"
 )
 
 const (
@@ -31,7 +36,10 @@ var StandardPathValues = []string{ KEY_CMD , KEY_DOMAIN, KEY_CALLER }
  *
  */
 type ServiceRequest struct {
+	request		* http.Request
+	body		string						// Body of the message
 	Parameters	map[string]string			// Encoded as either a=b&c=d or in header
+
 	Hmac		string						// Hmac that was detected/set
 	Date		string						// Date that was detected/set
 
@@ -39,11 +47,38 @@ type ServiceRequest struct {
 	QueryKeys	[]string
 	HeaderKeys  []string
 
-	ServerSecret string
+
+	Security	* gav.Secure
+
+
 }
 
-func NewServiceRequest() ServiceRequest {
-	return ServiceRequest{ Parameters : make(map[string]string) }
+func NewServiceRequest( r *http.Request ) * ServiceRequest {
+	s.request = r
+	s := &ServiceRequest{ Parameters : make(map[string]string) }
+	s.setBody( r )
+	s.Security = gav.NewSecure()
+	return s
+}
+
+func ( sr * ServiceRequest ) GetUser() ( string , error ){
+	return sr.Security.GetUser( request )
+}
+
+func ( sr * ServiceRequest ) ValidateSignature( userSecret string )( err errors ){
+	err = sr.Security.VerifySignature( sr.request , userSecret ,[]byte( sr.body ) )
+	return
+}
+
+func ( sr * ServiceRequest ) SetBody( r * http.Request )( err errors ){
+
+	defer r.Body.Close()
+	sr.body, err = ioutil.Readall( r.Body )
+	return
+}
+
+func ( sr * ServiceRequest ) GetBody( ) string {
+	return sr.body;
 }
 
 func( sr * ServiceRequest ) SetIfHmac( key , value string ) bool {
@@ -54,6 +89,7 @@ func( sr * ServiceRequest ) SetIfHmac( key , value string ) bool {
 	return false
 }
 
+func ()
 func( sr * ServiceRequest ) SetIfDate( key , value string ) bool {
 	if key == `date` || strings.ToLower( key ) == `x-srq-date` {
 		sr.Date = value
