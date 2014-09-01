@@ -6,6 +6,7 @@ package record
 import (
 	"crypto/md5"
 	"crypto/rand"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -63,6 +64,13 @@ type User struct {
 	UpdatedAt time.Time // Last updated
 	DeletedAt time.Time // When deleted
 
+}
+
+type UserJson struct {
+	FullName	string
+	Email		string
+	LoginName	string
+	Password	string
 }
 
 func ( u * User ) String() string {
@@ -135,12 +143,62 @@ func NewUser(domain string) * User {
 	return user
 }
 
+
 // NewTestUser will generate a nonsense test user
 func NewTestUser() * User {
 	user := NewUser("_test")
 	user.SetName( "test")
 	user.SetEmail( "test@nowhere.com" )
 	return user
+}
+
+func contains(s []string, e string ) bool {
+for _, a := range s { if a == e { return true } }
+return false
+}
+// Unmarshall will take the string and decode the JSON within it.
+// It will move and check each field to ensure proper values are recieved
+func ( user * User ) Unmarshal( json string , []string needs )  ( err * error ) {
+	var data UserJson
+	var missing []string
+
+	err = json.Unmarshal( json , &data )
+
+	data.Email 		= strings.TrimSpace( data.Email )
+	data.Fullname 	= strings.TrimSpace( data.FullName )
+	data.LoginName 	= strings.TrimSpace( data.LoginName )
+	data.Password 	= strings.TrimSpace( data.Password )
+
+	if err == nil {
+		if data.Email != "" {
+			user.Email = data.Email
+		}else if contains( needs , "Email"){
+			missing = append( missing , "Email")
+		}
+
+		if data.FullName != "" {
+			user.FullName = data.FullName
+		}else if contains( needs , "Email"){
+			missing = append( missing , "Email")
+		}
+
+		if data.LoginName != "" {
+			user.LoginName = data.FullName
+		}else if contains( needs , "LoginName"){
+			missing = append( missing , "LoginName")
+		}
+		if data.Password != "" {
+			user.Password = data.Password
+		}else if contains( needs , "Password"){
+			missing = append( missing , "Password")
+		}
+	}
+
+	if len( missing ) > 0 {
+		err = errors.New( "Missing fields: " + strings.Join( missing , ", "))
+	}
+
+	return
 }
 
 // CreateToken will generate a short-use token for confirmation with authentication.
@@ -248,6 +306,7 @@ func ( user * User ) CheckPassword(  testPassword string ) int {
 	}
 	return USER_OK
 }
+
 
 
 

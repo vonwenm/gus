@@ -8,6 +8,8 @@ import (
 	"github.com/cgentry/gofig"
 	"github.com/cgentry/gus/storage"
 	"github.com/cgentry/gus/record"
+	"github.com/cgentry/gosr"
+	gosrhttp "github.com/cgentry/gosr/http"
 	//"fmt"
 	"errors"
 	"strings"
@@ -17,38 +19,45 @@ type ServiceHandler struct {}
 
 func NewService(c * gofig.Configuration) {
 
-
 	http.HandleFunc("/register/", func(w http.ResponseWriter, r *http.Request) {ServiceRegister(c, w, r)})
 	http.ListenAndServe(":8181", nil)
 }
 
-// ServiceRegister will handle the calling of Registration for the user.
+// ServiceRegister The body of a request must contain the registration details for a
+// new user.
 func ServiceRegister(c *gofig.Configuration , w http.ResponseWriter, r *http.Request) {
-	// var caller string
 
-	// Need the request params. Since we have a standard format, parse by default
-	qparam := []string{ KEY_EMAIL, KEY_LOGIN, KEY_NAME, KEY_PWD, KEY_HMAC}
-	sr, err := ParseParms(r, StandardPathValues, qparam)
-	if err != nil {
-		ReturnError(w, CODE_BAD_CALL, err)
-		return
-	}
-	caller, errCode , err := CheckCallerAndHmac(r , &sr)
-	if err != nil {
-		ReturnError( w , errCode , err )
-		return
-	}
+	caller , rqst , answr := parseParms(c, w, r)
+	if caller != nil {
 
-	user := record.NewUser( caller.GetDomain() )
-	for _,key := range qparam {
-		val,_ := sr.Get( key )
-		user.MapFieldToUser( key , val )
-	}
-	driver := storage.GetDriver()
-	driver.RegisterUser( user )
-	userReturn := record.NewReturnFromUser(user)
+		// Need the request params. Since we have a standard format, parse by default
 
-	ReturnUserJson( w , CODE_OK, &userReturn )
+		qparam := []string{ KEY_EMAIL, KEY_LOGIN, KEY_NAME, KEY_PWD}
+		if err := rqst.Parameters.IsPresent(qparam); err != nil {
+			answ.SetError(err)
+			answ.Encode(w)
+		}else {
+			user := record.NewUser(caller.GetDomain())
+			err := user.Unmarshall( rqst.GetBody() )					// Pass in the body of the request
+			if err != nil {
+				answr.Status = http.PreconditionFailed
+				answr.StatusText = err.Error()
+			}else{
+				// OK...now the real work
+			}
+			for _, key := range qparam {
+				user.MapFieldToUser(key, rqst.Parameters.Get(key))
+			}
+
+			driver := storage.GetDriver()
+			driver.RegisterUser(user)
+
+			userReturn := record.NewReturnFromUser(user)
+
+			ReturnUserJson(w, CODE_OK, &userReturn)
+		}
+	}
+	return
 }
 
 // ParseParms takes the url path and puts it into a standard map
@@ -68,58 +77,47 @@ func ServiceRegister(c *gofig.Configuration , w http.ResponseWriter, r *http.Req
 
 // ParseParms expects a list of path parameters and a list of query parameters that are required.
 // From the query parameters, only thos that are included will be split
-func ParseParms(r *http.Request , list []string , qparam []string) (ServiceRequest , error) {
-	sr := NewServiceRequest()
-	sr.SetPathKeys(list )
-	sr.SetQueryKeys(qparam)
+func parseParms(c *gofig.Configuration , w http.ResponseWriter, r *http.Request) (
+	 *record.User,*gosrhttp.Request, *gosrhttp.Response) {
 
-	parts := strings.Split(r.URL.Path, "/")[1:]
-	if len(parts) != len(list) {
-		return sr, errors.New("Path was invalid")
-	}
+	var err error
+	var subscriber * record.User
 
-	// Match up the keys in list to the Path parts
-	for i, key := range list {
-			sr.Add( key , parts[i] )
-	}
+// Decode the request into standard request format
+	rqst := gosrhttp.NewRequest()
+	answr := gosr.NewResponse()
 
-	// AND now for the parameters (follows the ? portion)
-	query := r.URL.Query()
-	for _, key := range qparam {
-		if _, found := query[key]; !found {
-			return sr, errors.New("Missing query parameter '"+key+"'")
-		}else {
-			sr.Add( key , query.Get(key) )
+	if err = rqst.Decode(r); err == nil {
+
+		// Need the subscriber's record
+		subscriber, err = FindUser( rqst.GetUser() )
+		if err == nil && subscriber.IsSystem {
+			err = rqst.Verify( []byte( subscriber.GetSalt()) , 15 )
+		}else{
+			err.StatusText = gosr.INVALID_SUBSCRIBER
 		}
 	}
-	return sr, nil
+	if err != nil {
+		answr.SetError(err).Encode(w)					// Pack and send
+		subscriber = nil
+	}
+	return subscriber , rqst , answr
 }
 
 
 
 
-func CheckCallerAndHmac( r *http.Request, sr * ServiceRequest  ) (*record.User , int , error ){
+func FindUser( caller_guid string  ) (*record.User , * gosr.Error ){
+
 	// We need the calling system's secret. This is the token for the caller
 	drive := storage.GetDriver()
-	caller_guid,found := sr.Get( KEY_CALLER )
-	if ! found {
-		return  nil, CODE_BAD_CALL , errors.New("Missing Caller identifier")
-	}
 	caller, err := drive.FetchUserByGuid( caller_guid )
 	if err != nil {
-		return  nil , CODE_USER_DOESNT_EXIST , err
-	}
-	if caller.IsSystem != true {
-		return  nil, CODE_INVALID_REQUEST , errors.New("Not a valid caller")
+		return  nil , gosr.NewErrorWithText( http.StatusBadRequest, gosr.INVALID_USER_PWD )
 	}
 
-	key, err := CreateRestfulHmac(caller.GetToken(), r, sr)
-	if err != nil {
-		return caller , CODE_BAD_CALL , err
-	}
-	if ! CompareHmac(key , sr ){
-		return caller , CODE_BAD_CALL , errors.New("HMAC errors")
-	}
-	return caller , CODE_OK , nil
+	return caller ,  nil
 }
+
+func CheckParameters( *)
 

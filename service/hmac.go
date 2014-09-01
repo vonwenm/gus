@@ -5,12 +5,15 @@ package service
 
 import (
 	"crypto/hmac"
-	"crypto/sha256"
+	//"crypto/sha256"
+	"crypto/md5"
 	"encoding/base64"
 	"fmt"
 	"net/http"
 	"errors"
 	"time"
+	//"strings"
+	"io/ioutil"
 )
 
 const HEADER_TIMESTAMP = "Timestamp"
@@ -47,7 +50,7 @@ const HEADER_DATE      = "Date"
 func GetHmacDate( r *http.Request)( string ,error ){
 
 	requestDate := r.Header.Get( HEADER_TIMESTAMP )		// Header has "Timestamp:"
-	if string.len(requestDate) == 0 {					// Umm..NO
+	if len(requestDate) == 0 {					// Umm..NO
 		requestDate = r.Header.Get( HEADER_DATE )		// Header has "Date:" ?
 
 		if len(requestDate ) == 0 {
@@ -68,6 +71,28 @@ func GetHmacDate( r *http.Request)( string ,error ){
 	return requestDate , nil						// Passed all tests...
 }
 
+/**
+ * 	Return the base64 of the MD5 of the body.
+ *  if the body is empty, you will receive
+ */
+func ComputeBodyMD5( r *http.Request ) string {
+
+	defer r.Body.Close()
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		return ""
+	}
+
+	fmt.Println( "BODY IS " + r.FormValue("body") )
+	if len( body ) == 0 {
+		return ""
+	}
+
+	d := md5.New()
+	d.Write( body )
+	m5 := d.Sum(nil)
+	return base64.StdEncoding.EncodeToString( m5 )
+}
 
 func GenerateHmac( secret string , r *http.Request )( string , error ){
 
@@ -76,48 +101,11 @@ func GenerateHmac( secret string , r *http.Request )( string , error ){
 		return "" , err
 	}
 
-	// We need the the following items
+	// Now start to generate the rest of the message
+	return requestDate, nil
 }
 func CreateRestfulHmac(secret string , r *http.Request , srqst *ServiceRequest) ( string, error) {
-	var date  []string
-	var found bool
-
-	params := srqst.GetQueryKeys()
-	keys := srqst.SortedKeys()                        // get a list of the keys in sorted order
-
-	date = r.Header[ HEADER_DATE ]                    // Find the date (should be in header)
-
-	if len(date) == 0 {                                    // ... and if it isn't...
-		// Oh for heavens sake...
-		query := r.URL.Query()                        // Fetch the query list
-		date, found = query[QUERY_DATE]                // See if they tucked it in there
-		if !found {                                // ... NOPE - error
-			return "", errors.New("No date/time specified for key check")
-		}
-	}
-
-	h := hmac.New(sha256.New, []byte(secret))        // Start the hmac up
-	h.Write([]byte(r.URL.Path))                      // Adding in the full path (command and ID)
-	fmt.Printf( "HASH: Add in %s\n" , r.URL.Path )
-
-	for _, key := range keys {                        // for each key (in order)
-		if key != KEY_HMAC {                          // The hash can't be part of the hash
-			fmt.Printf( "HASH: PROCESS %s\n" , key)
-			for _, queryName := range params {
-				fmt.Printf("HASH: QueryName is %s\n" , queryName)
-				if queryName  == key {
-					if val, found := srqst.Get(key); found {
-						h.Write([]byte(key))                        // Add in the key and ...
-						h.Write([]byte(val))                // ... the key value
-						fmt.Printf( "HASH: Add in %s%s\n" , key, val )
-					}
-				}
-			}
-		}
-	}
-
-	h.Write([]byte(date[0]))                        // Add the date exactly as specified
-	return base64.StdEncoding.EncodeToString(h.Sum(nil)), nil
+	return "",nil
 }
 
 func CompareHmac(hmacComputed string , srqst * ServiceRequest) bool {
