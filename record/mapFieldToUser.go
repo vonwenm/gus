@@ -1,73 +1,94 @@
 package record
 
+/*
+ *  MapFieldToUser
+ *		This will take a key/value pair and map the input name into
+ *		our record. Values here can be strings, integers or booleans.
+ *
+ *  See:
+ *		user.go			- record definition
+ *		usersetter.go	- Setters for value
+ */
 import (
+	"errors"
+	"strconv"
 	"strings"
 )
 
 // Map commonly used names to fields within the user record
-func ( user * User ) MapFieldToUser( key, value string ) (found bool) {
-	
+func (user *User) MapFieldToUser(key, value string) (found bool, rtn error) {
+
+	iValue := 0
 	found = true
-	
+	value = strings.TrimSpace(value) // No spaces around field
+
 	switch strings.ToLower(key) {
 
 	case "name":
 		fallthrough
 	case "fullname":
-		user.SetName(value)
+		rtn = user.SetName(value)
 
 	case "email":
-		user.SetEmail(value)
+		rtn = user.SetEmail(value)
 
 	case "caller":
-		fallthrough				// the field "caller" is used for guid as an identifier to make less confusion
+		fallthrough // the field "caller" is used for guid as an identifier to make less confusion
 	case "guid":
-		user.SetGuid(value)
+		rtn = user.SetGuid(value)
 
 	case "domain":
-		user.SetDomain(value)
+		rtn = user.SetDomain(value)
 	case "password":
-		user.SetPasswordStr(value)
+		rtn = user.SetPasswordStr(value)
 	case "token":
-		user.SetToken(value)
+		rtn = user.SetToken(value)
 
 	case "salt":
-		user.SetSalt(value)
+		rtn = user.SetSalt(value)
 	case "isactive":
-		user.SetIsActive(StrToBool(value,user.IsActive))
+		rtn = user.SetIsActive(StrToBool(value, user.IsActive))
 	case "isloggedin":
-		user.SetIsLoggedIn(StrToBool(value,user.IsLoggedIn))
+		rtn = user.SetIsLoggedIn(StrToBool(value, user.IsLoggedIn))
 	case "issystem":
-		user.SetIsSystem( StrToBool(value,user.IsActive))
+		rtn = user.SetIsSystem(StrToBool(value, user.IsActive))
 
 	case "loginat":
-		user.SetLoginAt(StrToTime(value))
+		rtn = user.SetLoginAt(StrToTime(value))
 	case "logoutat":
-		user.SetLogoutAt(StrToTime(value))
+		rtn = user.SetLogoutAt(StrToTime(value))
 	case "lastfailedat":
-		user.SetLastFailedAt(StrToTime(value))
+		rtn = user.SetLastFailedAt(StrToTime(value))
 	case "failcount":
-		user.SetFailCount(StrToInt(value))
+		rtn = user.SetFailCount(StrToInt(value))
 
 	case "maxsessionat":
-		user.SetMaxSessionAt(StrToTime(value))
+		rtn = user.SetMaxSessionAt(StrToTime(value))
 	case "timeoutat":
-		user.SetTimeoutAt(StrToTime(value))
+		rtn = user.SetTimeoutAt(StrToTime(value))
 
 	case "createdat":
-		user.SetCreatedAt(StrToTime(value))
+		rtn = user.SetCreatedAt(StrToTime(value))
 	case "updatedat":
-		user.SetUpdatedAt(StrToTime(value))
+		rtn = user.SetUpdatedAt(StrToTime(value))
 	case "deletedat":
-		user.SetDeletedAt(StrToTime(value))
+		rtn = user.SetDeletedAt(StrToTime(value))
 
 	case "login":
 		fallthrough
 	case "loginname":
-		user.SetLoginName(value)
+		rtn = user.SetLoginName(value)
+
+	case "id":
+		iValue, rtn = strconv.Atoi(value)
+		if rtn == nil {
+			rtn = user.SetID(iValue)
+		}
+
 	default:
 		found = false
+		rtn = errors.New("Invalid field " + key)
 
 	}
-	return found
+	return
 }

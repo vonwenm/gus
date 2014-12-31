@@ -1,34 +1,28 @@
 // Copyright 2014 Charles Gentry. All rights reserved.
 // Please see the license included with this package
 //
-package memory
+package sqlite
 
 import (
 	"database/sql"
 	"github.com/cgentry/gus/storage"
-	_ "github.com/mattn/go-sqlite3"
+	_ "github.com/mattn/go-sqlite3" // Register sqlite3 with the main system
 )
 
-const storage_ident = "memory"
+const STORAGE_IDENTITY = "sqlite"
 
 type StorageMem struct {
 	engine    string
 	db        *sql.DB
 	lastError error
+	openName  string
+	openConn  string
 }
 
+// Register this driver to the main storage driver with a unique name
 func init() {
-
-	dbh, err := sql.Open("sqlite3", ":memory:")
-	if err != nil {
-		panic(err)
-	}
-	store := &StorageMem{engine: "sqlite3", db: dbh}
-
-	if err := store.CreateStore(); err != nil {
-		panic(err)
-	}
-	storage.Register(storage_ident, store)
+	store := &StorageMem{engine: "sqlite3"}
+	storage.Register(STORAGE_IDENTITY, store)
 }
 
 func (t *StorageMem) GetRawHandle() interface{} {
@@ -44,11 +38,17 @@ func (t *StorageMem) WasLastOk() bool {
 }
 
 func (t *StorageMem) Open(name, connect string) error {
+	t.openName = name
+	t.openConn = connect
 	t.db, t.lastError = sql.Open( name , connect )
 	return t.lastError
 }
 
 func (t *StorageMem) Close() error {
-	t.lastError = t.db.Close()
+	if t.db == nil {
+		t.lastError = nil
+	}else{
+		t.lastError = t.db.Close()
+	}
 	return t.lastError
 }

@@ -23,7 +23,7 @@ func (t *PwdPlaintext) EncryptPassword(pwd , salt string ) string {
 	if len( internalSalt ) == 0 {
 		return pwd + ";" + salt
 	}
-	return pwd + ";" + salt + ";" + internalSalt
+	return pwd + ";" + salt + ";" + internalSalt + ";Plaintext"
 }
 
 func (t *PwdPlaintext) SetInternalSalt( salt string ){

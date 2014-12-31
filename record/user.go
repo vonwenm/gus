@@ -9,8 +9,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"time"
 	"github.com/cgentry/gus/encryption"
+	"strings"
+	"time"
 )
 
 const (
@@ -23,18 +24,28 @@ const (
 
 const USER_TIME_STR = time.RFC3339
 
-
 func init() {
 	userControl = new(UserControl)
 	userControl.SetMaxDuration("24h")
 	userControl.SetTimeout("20m")
 }
 
-// A control variable holds all of the values we need to control logging in
-var userControl * UserControl
+type UserStatusCode int
+type UserInterface interface {
+	Login(string) (UserStatusCode, error)
+	Logout()
+	ChangePassword(oldPassword, token, newPassword string) UserStatusCode
+	Authenticate(token string) UserStatusCode
+}
 
+// A control variable holds all of the values we need to control logging in
+var userControl *UserControl
+
+// User is the internal record used to store all of the data that is held
+// for a single user. The database routines need to take care of serialising/mapping
+// the data out to long-term storage (DB, File, etc.)
 type User struct {
-	Id       int  // our internal ID
+	Id       int    // our internal ID
 	FullName string // Simple full name
 	Email    string // User's primary email
 	IsSystem bool   // User is INTERNAL or EXTERNAL
@@ -58,7 +69,7 @@ type User struct {
 	FailCount    int       // Current number of failed logins
 
 	MaxSessionAt time.Time // When they MUST logout by
-	TimeoutAt  time.Time // Required to authenticate by
+	TimeoutAt    time.Time // Required to authenticate by
 
 	CreatedAt time.Time // Creation date (immutable)
 	UpdatedAt time.Time // Last updated
@@ -66,28 +77,28 @@ type User struct {
 
 }
 
+// This is the minimum data needed for a user's record. It is NOT used
+// for anything other than a minimum set.
 type UserJson struct {
-	FullName	string
-	Email		string
-	LoginName	string
-	Password	string
+	FullName  string
+	Email     string
+	LoginName string
+	Password  string
 }
 
-func ( u * User ) String() string {
-	return fmt.Sprintf( `User Record
+func (u *User) String() string {
+	return fmt.Sprintf(`User Record
 	Guid: 		'%s'
 	Domain:		'%s'
 	LoginName:	'%s'
 	Token:		'%s'
-	` ,
-	u.GetGuid() ,
-	u.GetDomain() ,
-	u.GetLoginName(),
-	u.Token )
+	`,
+		u.GetGuid(),
+		u.GetDomain(),
+		u.GetLoginName(),
+		u.Token)
 
 }
-
-
 
 type UserControl struct {
 	MaximumSessionDuration  time.Duration
@@ -114,12 +125,12 @@ func CreateSalt(len int) string {
  * 		UserControl routines. These set the fields for timeout and control
  */
 
-func (uc * UserControl) SetMaxDuration(interval string) (err error) {
+func (uc *UserControl) SetMaxDuration(interval string) (err error) {
 	uc.MaximumSessionDuration, err = time.ParseDuration(interval)
 	return err
 }
 
-func (uc * UserControl) SetTimeout(interval string) (err error) {
+func (uc *UserControl) SetTimeout(interval string) (err error) {
 	uc.TimeSinceAuthentication, err = time.ParseDuration(interval)
 	return err
 }
@@ -128,94 +139,99 @@ func (uc * UserControl) SetTimeout(interval string) (err error) {
  *			PUBLIC ROUTINES
  *			-- User --
  */
-// NewUser creates a new user record with only the Domain filled in.
-// The "Salt" field is a crypto-random number in order to produce
+// NewUser creates a new, empty user record. The domain is set to blank and
+// the "Salt" field is a crypto-random number in order to produce
 // unique values
-func NewUser(domain string) * User {
-	user := new( User )
+func NewUser() *User {
+	user := new(User)
+	user.Id = 0 // Flag for 'not created'
 	user.CreatedAt = time.Now()
 	user.UpdatedAt = user.CreatedAt
-	user.IsSystem  = false
+	user.IsSystem = false
 
-	user.SetDomain(domain)
+	user.SetDomain("")
 	user.Salt = CreateSalt(20)
 	user.Token = ""
 	return user
 }
 
-
 // NewTestUser will generate a nonsense test user
-func NewTestUser() * User {
-	user := NewUser("_test")
-	user.SetName( "test")
-	user.SetEmail( "test@nowhere.com" )
+func NewTestUser() *User {
+	user := NewUser()
+	user.SetDomain("_test")
+	user.SetName("test")
+	user.SetEmail("test@nowhere.com")
 	return user
 }
 
-func contains(s []string, e string ) bool {
-for _, a := range s { if a == e { return true } }
-return false
+func contains(s []string, e string) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
 }
+
 // Unmarshall will take the string and decode the JSON within it.
-// It will move and check each field to ensure proper values are recieved
-func ( user * User ) Unmarshal( json string , []string needs )  ( err * error ) {
+// It will move and check each field to ensure proper values are received
+func (user *User) Unmarshal(jsonIn string, needs []string) error {
 	var data UserJson
 	var missing []string
 
-	err = json.Unmarshal( json , &data )
+	err := json.Unmarshal([]byte(jsonIn), &data)
 
-	data.Email 		= strings.TrimSpace( data.Email )
-	data.Fullname 	= strings.TrimSpace( data.FullName )
-	data.LoginName 	= strings.TrimSpace( data.LoginName )
-	data.Password 	= strings.TrimSpace( data.Password )
+	data.Email = strings.TrimSpace(data.Email)
+	data.FullName = strings.TrimSpace(data.FullName)
+	data.LoginName = strings.TrimSpace(data.LoginName)
+	data.Password = strings.TrimSpace(data.Password)
 
 	if err == nil {
 		if data.Email != "" {
 			user.Email = data.Email
-		}else if contains( needs , "Email"){
-			missing = append( missing , "Email")
+		} else if contains(needs, "Email") {
+			missing = append(missing, "Email")
 		}
 
 		if data.FullName != "" {
 			user.FullName = data.FullName
-		}else if contains( needs , "Email"){
-			missing = append( missing , "Email")
+		} else if contains(needs, "Email") {
+			missing = append(missing, "Email")
 		}
 
 		if data.LoginName != "" {
 			user.LoginName = data.FullName
-		}else if contains( needs , "LoginName"){
-			missing = append( missing , "LoginName")
+		} else if contains(needs, "LoginName") {
+			missing = append(missing, "LoginName")
 		}
 		if data.Password != "" {
 			user.Password = data.Password
-		}else if contains( needs , "Password"){
-			missing = append( missing , "Password")
+		} else if contains(needs, "Password") {
+			missing = append(missing, "Password")
 		}
 	}
 
-	if len( missing ) > 0 {
-		err = errors.New( "Missing fields: " + strings.Join( missing , ", "))
+	if len(missing) > 0 {
+		err = errors.New("Missing fields: " + strings.Join(missing, ", "))
 	}
 
-	return
+	return err
 }
 
 // CreateToken will generate a short-use token for confirmation with authentication.
 // The token can be used as a ticket until it expires. Any program can gain access
-// to user information with it. Tokens can be saves
-func (user * User) CreateToken() string {
+// to user information with it.
+func (user *User) CreateToken() string {
 	guid := md5.New()
-	guid.Write([]byte(user.GetGuid()))			// Always based on user's GUID
-	guid.Write([]byte(CreateSalt(20)))	// And a non-repeatable magic number
+	guid.Write([]byte(user.GetGuid())) // Always based on user's GUID
+	guid.Write([]byte(CreateSalt(20))) // And a non-repeatable magic number
 	out := guid.Sum(nil)
-	return fmt.Sprintf("%x-%x-%x-%x-%x", out[0:4], out[4:6], out[6:8], out[8:10], out[10:len(out)])
+	return fmt.Sprintf("%x-%x-%x-%x-%x", out[0:4], out[4:6], out[6:8], out[8:10], out[10:])
 }
-
 
 // CheckExpirationDates will see if the token is valid or expired. If it
 // is expired, the token will be cleared and the proper status will be set
-func (user * User) CheckExpirationDates() int {
+func (user *User) CheckExpirationDates() UserStatusCode {
 	if user.Token != "" && user.IsLoggedIn {
 		if user.LastAuthAt.Before(user.MaxSessionAt) || user.LastAuthAt.Before(user.TimeoutAt) {
 			user.LastAuthAt = time.Now()
@@ -230,7 +246,7 @@ func (user * User) CheckExpirationDates() int {
 
 // Authenticate checks the user's token to see if it is valid. This is a post-login process
 // The user's record should be saved after this operation
-func (user * User) Authenticate(token string) int {
+func (user *User) Authenticate(token string) UserStatusCode {
 	if token != "" && user.IsLoggedIn {
 		if checkToken, err := user.GetTokenWithExpiration(); err == USER_OK && token == checkToken {
 			return USER_OK
@@ -239,21 +255,19 @@ func (user * User) Authenticate(token string) int {
 	return USER_INVALID
 }
 
-
 // Login will authenticate the user and create the tokens required later
-func (user * User) Login(password string) (int, error) {
+func (user *User) Login(password string) (UserStatusCode, error) {
 
-	now := time.Now()                     // Get time marker all the times
+	now := time.Now() // Get time marker all the times
 
-	if status := user.CheckPassword( password ); status != USER_OK {
+	if status := user.CheckPassword(password); status != USER_OK {
 		user.LastFailedAt = now // Save failure date/time
 		user.IsLoggedIn = false // Mark as not logged in
 		user.Token = ""         // Clear the token
 		user.FailCount++        // Increment failure count
-		return status , errors.New( "Invalid login/password")
+		return status, errors.New("Invalid login/password")
 	}
-	pwd := encryption.GetDriver().EncryptPassword(password , user.Salt) // Encrypt password
-
+	pwd := encryption.GetDriver().EncryptPassword(password, user.Salt) // Encrypt password
 
 	if pwd != user.Password { // Password differ?
 		user.LastFailedAt = now // Save failure date/time
@@ -275,40 +289,32 @@ func (user * User) Login(password string) (int, error) {
 }
 
 // Logout will mark the record as 'logged out' and the user will be removed from the system
-func (user * User) Logout() {
+func (user *User) Logout() {
 	user.Token = ""
 	user.IsLoggedIn = false
 	user.LogoutAt = time.Now()
 }
 
-
-
 // ChangePassword to the new password. The user must be logged in for this
-func ( user * User ) ChangePassword( oldPassword, token, newPassword string) int {
+func (user *User) ChangePassword(oldPassword, token, newPassword string) UserStatusCode {
 	if user.Authenticate(token) == USER_OK {
 		t := encryption.GetDriver()
-		if t.EncryptPassword( oldPassword , user.Salt) == user.Password {
+		if t.EncryptPassword(oldPassword, user.Salt) == user.Password {
 			if check := user.CheckNewPassword(newPassword); check != USER_OK {
 				return check
 			}
-			user.Password = t.EncryptPassword( newPassword , user.Salt)
+			user.Password = t.EncryptPassword(newPassword, user.Salt)
 			return USER_OK
 		}
 	}
 	return USER_INVALID
 }
 
-func ( user * User ) CheckPassword(  testPassword string ) int {
-	pwd := encryption.GetDriver().EncryptPassword(testPassword , user.Salt) // Encrypt password
+func (user *User) CheckPassword(testPassword string) UserStatusCode {
+	pwd := encryption.GetDriver().EncryptPassword(testPassword, user.Salt) // Encrypt password
 
 	if pwd != user.GetPassword() {
 		return USER_INVALID
 	}
 	return USER_OK
 }
-
-
-
-
-
-

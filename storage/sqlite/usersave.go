@@ -1,7 +1,7 @@
 // Copyright 2014 Charles Gentry. All rights reserved.
 // Please see the license included with this package
 //
-package memory
+package sqlite
 
 import (
 	"github.com/cgentry/gus/record"

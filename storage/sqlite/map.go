@@ -1,7 +1,7 @@
 // Copyright 2014 Charles Gentry. All rights reserved.
 // Please see the license included with this package
 //
-package memory
+package sqlite
 
 import (
 	"database/sql"
@@ -21,7 +21,7 @@ func mapColumnsToUser(rows *sql.Rows) []*record.User {
 		for i, _ := range columns {
 			vpoint[i] = &values[i]
 		}
-		user := record.NewUser("")
+		user := record.NewUser()
 		rows.Scan(vpoint...)
 
 		for i, col := range columns {

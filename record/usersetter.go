@@ -1,150 +1,166 @@
 package record
 
+/*
+ * All of the setters will return either nil or ERROR. This is atypical of most
+ * other routines, but this is where rules are enforced for the record's fields
+ */
+
 import (
-	"time"
+	"errors"
 	"github.com/cgentry/gus/encryption"
+	"strings"
+	"time"
 	//"fmt"
 )
 
 // Set, or reset, the user's ID. When an ID is set, the GUID is reset.
-func (user * User) SetID(id int) * User {
+func (user *User) SetID(id int) error {
+
 	if id > 0 && user.Id == 0 {
 		user.Id = id
+		return nil
 	}
-	return user
+	return errors.New("User id cannot be set")
+
 }
+
 // SetName sets the fullname for the user
-func (user * User) SetName(name string) * User {
-	user.FullName = name
-	return user
+func (user *User) SetName(name string) error {
+	name = strings.TrimSpace(name)
+	if len(name) > 0 {
+		user.FullName = name
+		return nil
+	}
+	return errors.New("Name cannot be empty")
 }
 
-func (user * User) SetEmail(val string) * User {
+func (user *User) SetEmail(val string) error {
 	user.Email = val
-	return user
+	return nil
 }
 
-
-func ( user * User ) SetGuid( val string ) * User {
+func (user *User) SetGuid(val string) error {
+	if len(val) < 32 {
+		return errors.New("GUID must be at least 32 characters long")
+	}
 	user.Guid = val
-	return user
+	return nil
 }
 
-func (user * User) SetLoginName(name string) * User {
+func (user *User) SetLoginName(name string) error {
 	user.LoginName = name
-	return user
+	return nil
 }
 
-
-func (user * User) SetToken(val string) * User {
+func (user *User) SetToken(val string) error {
 	user.Token = val
-	return user
+	return nil
 }
 
-func ( user * User ) SetLoginAtStr( val string ) * User {
-	return user
+func (user *User) SetLoginAtStr(val string) error {
+	return nil
 }
 
-func ( user * User ) SetLoginAt( t time.Time ) * User {
+func (user *User) SetLoginAt(t time.Time) error {
 	user.LoginAt = t
-	return user
+	return nil
 }
 
 // SetLoginAt - set the logged in date/time as now
-func (user * User) SetLoginAtNow() * User {
+func (user *User) SetLoginAtNow() error {
 	user.LoginAt = time.Now()
-	return user
+	return nil
 }
 
 // GetCreatedAt to be now. The created at can only be done once
-func (user * User) GetCreatedAt() time.Time {
-	return user.CreatedAt
+func (user *User) SetCreatedAtNow() error {
+	if user.Id == 0 {
+		user.CreatedAt = time.Now()
+	}
+	return nil
 }
 
 // SetUpdateAt will set the update time stamp to now
-func (user * User) SetUpdatedAtNow() * User {
+func (user *User) SetUpdatedAtNow() error {
 	user.UpdatedAt = time.Now()
-	return user
+	return nil
 }
 
-func ( user * User ) SetUpdatedAt( t time.Time ) * User {
+func (user *User) SetUpdatedAt(t time.Time) error {
 	user.UpdatedAt = t
-	return user
+	return nil
 }
 
 // SetDomain will set the domain name for this record.
-func (user * User) SetDomain(val string) * User {
+func (user *User) SetDomain(val string) error {
 	user.Domain = val
-	return user
+	return nil
 }
 
-func ( user * User ) SetPasswordStr( pwd string ) * User {
+func (user *User) SetPasswordStr(pwd string) error {
 	user.Password = pwd
-	return user
+	return nil
 }
-func (user * User) SetPassword(newPassword string) int {
-	if user.Password != "" {
-		return USER_INVALID
+func (user *User) SetPassword(newPassword string) error {
+	newPassword = strings.TrimSpace(newPassword)
+	if len(newPassword) < 6 {
+		return errors.New("Password must be at least 6 characters")
 	}
 	user.Password = encryption.GetDriver().EncryptPassword(newPassword, user.Salt)
-
-	return USER_OK
+	return nil
 }
 
-func ( user * User ) SetSalt( val string ) * User {
+func (user *User) SetSalt(val string) error {
 	user.Salt = val
-	return user
+	return nil
 }
 
-func ( user * User ) SetIsActive( val bool ) * User {
+func (user *User) SetIsActive(val bool) error {
 	user.IsActive = val
-	return user
+	return nil
 }
 
-func ( user * User ) SetIsLoggedIn( val bool ) * User {
+func (user *User) SetIsLoggedIn(val bool) error {
 	user.IsLoggedIn = val
-	return user
+	return nil
 }
 
-func ( user * User ) SetIsSystem( val bool ) * User {
+func (user *User) SetIsSystem(val bool) error {
 	user.IsSystem = val
-	return user
+	return nil
 }
 
-func ( user * User ) SetLogoutAt( t time.Time ) * User {
+func (user *User) SetLogoutAt(t time.Time) error {
 	user.LogoutAt = t
-	return user
+	return nil
 }
 
-func ( user * User ) SetLastFailedAt( t time.Time ) * User {
+func (user *User) SetLastFailedAt(t time.Time) error {
 	user.LastFailedAt = t
-	return user
+	return nil
 }
 
-func ( user * User ) SetFailCount( i int) * User {
+func (user *User) SetFailCount(i int) error {
 	user.FailCount = i
-	return user
+	return nil
 }
 
-func ( user * User ) SetMaxSessionAt( t time.Time ) * User {
+func (user *User) SetMaxSessionAt(t time.Time) error {
 	user.MaxSessionAt = t
-	return user
+	return nil
 }
 
-func ( user * User ) SetTimeoutAt( t time.Time ) * User {
+func (user *User) SetTimeoutAt(t time.Time) error {
 	user.TimeoutAt = t
-	return user
+	return nil
 }
 
-func ( user * User ) SetCreatedAt( t time.Time ) * User {
-	user.CreatedAt= t
-	return user
+func (user *User) SetCreatedAt(t time.Time) error {
+	user.CreatedAt = t
+	return nil
 }
 
-func ( user * User ) SetDeletedAt( t time.Time ) * User {
+func (user *User) SetDeletedAt(t time.Time) error {
 	user.DeletedAt = t
-	return user
+	return nil
 }
-
-
-

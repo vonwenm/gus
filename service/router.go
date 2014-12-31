@@ -4,63 +4,46 @@
 package service
 
 import (
-	"net/http"
 	"github.com/cgentry/gofig"
-	"github.com/cgentry/gus/storage"
-	"github.com/cgentry/gus/record"
 	"github.com/cgentry/gosr"
-	gosrhttp "github.com/cgentry/gosr/http"
-	//"fmt"
-	"errors"
-	"strings"
+	"github.com/cgentry/gosr/ghttp"
+	"github.com/cgentry/gus/record"
+	"github.com/cgentry/gus/storage"
+	"net/http"
 )
 
-type ServiceHandler struct {}
+type ServiceHandler struct{}
+type ParseParms func(*gofig.Configuration, http.ResponseWriter, *http.Request) (*record.User, *ghttp.Request, *ghttp.Response)
 
-func NewService(c * gofig.Configuration) {
+func NewService(c *gofig.Configuration) {
 
-	http.HandleFunc("/register/", func(w http.ResponseWriter, r *http.Request) {ServiceRegister(c, w, r)})
+	http.HandleFunc("/register/", func(w http.ResponseWriter, r *http.Request) { httpRegister(c, w, r) })
+	http.HandleFunc("/login/", func(w http.ResponseWriter, r *http.Request) { ServiceLogin(c, w, r) })
+	http.HandleFunc("/logout/", func(w http.ResponseWriter, r *http.Request) { ServiceLogout(c, w, r) })
+	http.HandleFunc("/update/", func(w http.ResponseWriter, r *http.Request) { ServiceUpdate(c, w, r) })
+	http.HandleFunc("/enable/", func(w http.ResponseWriter, r *http.Request) { ServiceEnable(c, w, r) })
+	http.HandleFunc("/diable/", func(w http.ResponseWriter, r *http.Request) { ServiceDisable(c, w, r) })
+
 	http.ListenAndServe(":8181", nil)
 }
 
-// ServiceRegister The body of a request must contain the registration details for a
-// new user.
-func ServiceRegister(c *gofig.Configuration , w http.ResponseWriter, r *http.Request) {
-
-	caller , rqst , answr := parseParms(c, w, r)
-	if caller != nil {
-
-		// Need the request params. Since we have a standard format, parse by default
-
-		qparam := []string{ KEY_EMAIL, KEY_LOGIN, KEY_NAME, KEY_PWD}
-		if err := rqst.Parameters.IsPresent(qparam); err != nil {
-			answ.SetError(err)
-			answ.Encode(w)
-		}else {
-			user := record.NewUser(caller.GetDomain())
-			err := user.Unmarshall( rqst.GetBody() )					// Pass in the body of the request
-			if err != nil {
-				answr.Status = http.PreconditionFailed
-				answr.StatusText = err.Error()
-			}else{
-				// OK...now the real work
-			}
-			for _, key := range qparam {
-				user.MapFieldToUser(key, rqst.Parameters.Get(key))
-			}
-
-			driver := storage.GetDriver()
-			driver.RegisterUser(user)
-
-			userReturn := record.NewReturnFromUser(user)
-
-			ReturnUserJson(w, CODE_OK, &userReturn)
-		}
-	}
+func ServiceLogin(c *gofig.Configuration, w http.ResponseWriter, r *http.Request) {
+	return
+}
+func ServiceLogout(c *gofig.Configuration, w http.ResponseWriter, r *http.Request) {
+	return
+}
+func ServiceUpdate(c *gofig.Configuration, w http.ResponseWriter, r *http.Request) {
+	return
+}
+func ServiceEnable(c *gofig.Configuration, w http.ResponseWriter, r *http.Request) {
+	return
+}
+func ServiceDisable(c *gofig.Configuration, w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-// ParseParms takes the url path and puts it into a standard map
+// StdParseParms takes the url path and puts it into a standard map
 // the request always looks like:
 // /cmd/domain/caller-appid/hmac/identifier....
 //			login: identifier(login-name)/password
@@ -75,49 +58,54 @@ func ServiceRegister(c *gofig.Configuration , w http.ResponseWriter, r *http.Req
 //			active:
 //
 
-// ParseParms expects a list of path parameters and a list of query parameters that are required.
-// From the query parameters, only thos that are included will be split
-func parseParms(c *gofig.Configuration , w http.ResponseWriter, r *http.Request) (
-	 *record.User,*gosrhttp.Request, *gosrhttp.Response) {
+/**
+ * StdParseParms
+ *		Parse the parameters from the request and put them into a standard format
+ *		If there are errors, we will return the answer with an error
+ */
+var StdParseParms ParseParms = func(c *gofig.Configuration, w http.ResponseWriter, r *http.Request) (
+	*record.User, *ghttp.Request, *ghttp.Response) {
 
 	var err error
-	var subscriber * record.User
+	var subscriber *record.User
 
-// Decode the request into standard request format
-	rqst := gosrhttp.NewRequest()
-	answr := gosr.NewResponse()
+	// Decode the request into standard request format
+	rqst := ghttp.NewRequest()
+	answr := ghttp.NewResponse()
 
-	if err = rqst.Decode(r); err == nil {
+	if err = rqst.Decode(r, ""); err == nil { // Decode the request
 
 		// Need the subscriber's record
-		subscriber, err = FindUser( rqst.GetUser() )
-		if err == nil && subscriber.IsSystem {
-			err = rqst.Verify( []byte( subscriber.GetSalt()) , 15 )
-		}else{
-			err.StatusText = gosr.INVALID_SUBSCRIBER
+		subscriber, err = FindUser(rqst.GetUser(), true) // All requests must have a user...
+		if err == nil {                                  // .. got one
+			err = rqst.Verify([]byte(subscriber.GetSalt()), 15)
 		}
 	}
 	if err != nil {
-		answr.SetError(err).Encode(w)					// Pack and send
+		answr.SetError(gosr.NewErrorWithText(CODE_BAD_CALL, err.Error())).Encode(w) // Pack and send
 		subscriber = nil
 	}
-	return subscriber , rqst , answr
+	return subscriber, rqst, answr
 }
 
+func sendError(c *gofig.Configuration, w http.ResponseWriter) {
 
+}
 
-
-func FindUser( caller_guid string  ) (*record.User , * gosr.Error ){
+/*
+ * Lookup the user withing the data store. Simple wrapper.
+ */
+func FindUser(caller_guid string, needSystem bool) (*record.User, *gosr.Error) {
 
 	// We need the calling system's secret. This is the token for the caller
 	drive := storage.GetDriver()
-	caller, err := drive.FetchUserByGuid( caller_guid )
+	caller, err := drive.FetchUserByGuid(caller_guid)
 	if err != nil {
-		return  nil , gosr.NewErrorWithText( http.StatusBadRequest, gosr.INVALID_USER_PWD )
+		return nil, gosr.NewErrorWithText(http.StatusBadRequest, gosr.INVALID_USER_PWD)
+	}
+	if needSystem && !caller.IsSystem {
+		return nil, gosr.NewErrorWithText(http.StatusBadRequest, gosr.INVALID_USER_PWD)
 	}
 
-	return caller ,  nil
+	return caller, nil
 }
-
-func CheckParameters( *)
-

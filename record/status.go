@@ -1,7 +1,7 @@
 package record
 
 type Status struct {
-	Code	int
+	Code    int
 	Message string
-	Hmac	string
+	Hmac    string
 }

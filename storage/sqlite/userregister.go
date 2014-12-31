@@ -1,4 +1,4 @@
-package memory
+package sqlite
 
 import (
 	"github.com/cgentry/gus/record"
@@ -7,11 +7,21 @@ import (
 	"database/sql"
 	//"fmt"
 	"errors"
+	"strings"
 )
 
+// Register a new user with the system. If the record cannot be inserted, see what kind of error there is
 func (t *StorageMem) RegisterUser(user *record.User) error {
+	return registerUser( t.db , user )
+}
 
-	stmt, err := t.GetRegisterSql()
+// This is the local function for testing purposes.
+func registerUser( db *sql.DB , user *record.User) error {
+
+	sql := `INSERT INTO User (` + DB_FIELD_LIST_ALL + `)
+		    VALUES (` + strings.Repeat( "?, ",  DB_FIELD_COUNT_ALL - 1) + `? )`
+	stmt, err := db.Prepare(sql)
+
 	if err == nil {
 		_, err = stmt.Exec(
 			user.GetGuid(), user.GetFullName(), user.GetEmail(),
@@ -26,7 +36,7 @@ func (t *StorageMem) RegisterUser(user *record.User) error {
 	if err == nil {                                // Some error occured...see if there is a duplicate
 		return nil
 	}
-	code, err2 := t.CheckUserExists(user)    // Check to see if user exists
+	code, err2 := checkUserExists(db , user)    // Check to see if user exists
 
 	if code != service.CODE_USER_DOESNT_EXIST {    // Is not an invalid gUID
 		return err2
@@ -34,10 +44,16 @@ func (t *StorageMem) RegisterUser(user *record.User) error {
 	return err
 }
 
-func (t * StorageMem) CheckUserExists(user *record.User) ( int , error ) {
-	stmt, err := t.GetRegisterChecksSql()
+func checkUserExists( db *sql.DB , user *record.User) ( int , error ) {
+	var guid , domain, email, login sql.NullString
+
+	sql := `SELECT Guid, Domain , Email, LoginName
+			FROM User
+			WHERE Guid = ? OR ( Domain = ? AND ( Email = ? OR LoginName = ?))`
+
+	stmt, err := db.Prepare(sql)
 	if err == nil {
-		var guid , domain, email, login sql.NullString
+
 		row := stmt.QueryRow(
 			user.GetGuid(),
 			user.GetDomain(),
@@ -51,7 +67,7 @@ func (t * StorageMem) CheckUserExists(user *record.User) ( int , error ) {
 				return service.CODE_DUPLICATE_KEY, errors.New("User GUID exists")
 			}
 			if email.Valid && email.String == user.GetEmail() {
-				return service.CODE_DUPLICATE_EMAIL, errors.New("Email already in use")
+				return service.CODE_DUPLICATE_EMAIL, errors.New("Email already registered")
 			}
 			if login.Valid && login.String == user.GetLoginName() {
 				return service.CODE_DUPLICATE_LOGIN_NAME, errors.New("Login name already exists")
