@@ -18,7 +18,7 @@ func mapColumnsToUser(rows *sql.Rows) []*record.User {
 	var vstr string
 
 	for rows.Next() {
-		for i, _ := range columns {
+		for i := range columns {
 			vpoint[i] = &values[i]
 		}
 		user := record.NewUser()
@@ -28,12 +28,11 @@ func mapColumnsToUser(rows *sql.Rows) []*record.User {
 			val := values[i]
 			if b, ok := val.([]byte); ok {
 				vstr = string(b)
-				user.MapFieldToUser(col,vstr)
-		} // End columns
+				user.MapFieldToUser(col, vstr)
+			} // End columns
 
-		allUsers = append(allUsers, user)
-	}
+			allUsers = append(allUsers, user)
+		}
 	}
 	return allUsers
 }
-

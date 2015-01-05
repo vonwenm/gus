@@ -8,21 +8,36 @@ import (
 // data. The back-storage can be a flat file, database or document store.
 // The interfaces specify NO sql methods and flatten out operations
 type Driver interface {
-	Open(name, connect string) error
-	CreateStore() error
-	Close() error
+	Open(connect string) (Conn, error)
+}
 
-	RegisterUser(user *record.User) error // Save initial routine
+// This is the minimum call set that every driver is required to implement
+type Conn interface {
+	RegisterUser(user *record.User) error
 
-	SaveUserLogin(user *record.User) error  // Save relevant data for being logged in
-	SaveUserAuth(user *record.User) error   // User just did an authentication - save info
-	SaveUserLogoff(user *record.User) error // User just logged off
+	UserLogin(user *record.User) error
+	UserAuthenticated(user *record.User) error
+	UserLogout(user *record.User) error
+
+	UserUpdate(user *record.User) error
 
 	FetchUserByGuid(guid string) (*record.User, error)
 	FetchUserByToken(token string) (*record.User, error)
 	FetchUserByEmail(email string) (*record.User, error)
-	FetchUserByLogin(login string) (*record.User, error)
+	FetchUserByLogin(loginName string) (*record.User, error)
+}
 
-	GetLastError() error
+// Option Storge Creation interface
+type Creater interface {
+	CreateStore() error
+}
 
+//Optional Closing interface. If this isn't implemented, no error is reported.
+type Closer interface {
+	Close() error
+}
+
+//Optional Reset interface. This will reset any errors and cleanup any intermediate results
+type Reseter interface {
+	Reset()
 }

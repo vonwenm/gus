@@ -15,7 +15,7 @@ func generateCaller() * record.User {
 }
 func TestSimpleRegister(t *testing.T) {
 
-	mock := mock.Register()
+	mock := mock.RegisterMockStore()
 	caller := generateCaller()
 
 	Convey("Send Simple register request in", t, func() {
@@ -25,5 +25,7 @@ func TestSimpleRegister(t *testing.T) {
 		req.email = "johndoe@golang.go"
 		req.Password = "12345678abcdefg"
 		So( req.Check(), ShouldBeTrue )
+
+		pack := ServiceRegister( caller , request )
 	})
 }

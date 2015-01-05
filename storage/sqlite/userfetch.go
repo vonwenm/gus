@@ -4,13 +4,15 @@
 package sqlite
 
 import (
-	"github.com/cgentry/gus/record"
-	"errors"
 	"fmt"
-	//"database/sql"
+	"github.com/cgentry/gus/record"
+	"github.com/cgentry/gus/storage"
 )
 
-func (t *StorageMem) fetchUserByField(field, val string) (*record.User, error) {
+func (t *SqliteConn) fetchUserByField(field, val string) (*record.User, error) {
+	if t.db == nil {
+		return nil, storage.ErrNotOpen
+	}
 	cmd := fmt.Sprintf(`SELECT * FROM User WHERE %s = ?`, field)
 	rows, err := t.db.Query(cmd, val)
 	if err != nil {
@@ -20,24 +22,24 @@ func (t *StorageMem) fetchUserByField(field, val string) (*record.User, error) {
 
 	users := mapColumnsToUser(rows)
 	if len(users) == 0 {
-		return nil, errors.New("No records found")
+		return nil, storage.ErrUserNotFound
 	}
 	return users[0], err
 
 }
 
-func (t *StorageMem) FetchUserByToken(token string) (*record.User, error) {
-	return t.fetchUserByField("Token", token)
+func (t *SqliteConn) FetchUserByToken(token string) (*record.User, error) {
+	return t.fetchUserByField(FIELD_TOKEN, token)
 }
 
-func (t *StorageMem) FetchUserByGuid(guid string) (*record.User, error) {
-	return t.fetchUserByField("Guid", guid)
+func (t *SqliteConn) FetchUserByGuid(guid string) (*record.User, error) {
+	return t.fetchUserByField(FIELD_GUID, guid)
 }
 
-func (t *StorageMem) FetchUserByEmail(email string) (*record.User, error) {
-	return t.fetchUserByField("Email", email)
+func (t *SqliteConn) FetchUserByEmail(email string) (*record.User, error) {
+	return t.fetchUserByField(FIELD_EMAIL, email)
 }
 
-func (t *StorageMem) FetchUserByLogin(value string) (*record.User, error) {
-	return t.fetchUserByField("LoginName", value)
+func (t *SqliteConn) FetchUserByLogin(value string) (*record.User, error) {
+	return t.fetchUserByField(FIELD_LOGINNAME, value)
 }

@@ -10,45 +10,38 @@ import (
 )
 
 const STORAGE_IDENTITY = "sqlite"
+const DRIVER_IDENTITY = "sqlite3"
 
-type StorageMem struct {
-	engine    string
-	db        *sql.DB
-	lastError error
-	openName  string
-	openConn  string
+type SqliteDriver struct{}
+
+type SqliteConn struct {
+	db  *sql.DB
+	dsn string
 }
 
 // Register this driver to the main storage driver with a unique name
 func init() {
-	store := &StorageMem{engine: "sqlite3"}
-	storage.Register(STORAGE_IDENTITY, store)
+	storage.Register(STORAGE_IDENTITY, &SqliteDriver{})
 }
 
-func (t *StorageMem) GetRawHandle() interface{} {
+func (t *SqliteConn) GetRawHandle() interface{} {
 	return t.db
 }
 
-func (t *StorageMem) GetLastError() error {
-	return t.lastError
-}
-
-func (t *StorageMem) WasLastOk() bool {
-	return t.lastError == nil
-}
-
-func (t *StorageMem) Open(name, connect string) error {
-	t.openName = name
-	t.openConn = connect
-	t.db, t.lastError = sql.Open( name , connect )
-	return t.lastError
-}
-
-func (t *StorageMem) Close() error {
-	if t.db == nil {
-		t.lastError = nil
-	}else{
-		t.lastError = t.db.Close()
+func (t SqliteDriver) Open(dsnConnect string) (storage.Conn, error) {
+	var err error
+	store := &SqliteConn{
+		dsn: dsnConnect,
 	}
-	return t.lastError
+	store.db, err = sql.Open(DRIVER_IDENTITY, dsnConnect)
+	return store, err
+}
+
+func (t *SqliteConn) Close() error {
+	if t.db == nil {
+		return nil
+	}
+	err := t.db.Close()
+	t.db = nil
+	return err
 }

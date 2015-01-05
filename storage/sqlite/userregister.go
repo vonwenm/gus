@@ -1,54 +1,120 @@
 package sqlite
 
 import (
-	"github.com/cgentry/gus/record"
-	"github.com/cgentry/gus/service"
-	"strconv"
 	"database/sql"
-	//"fmt"
-	"errors"
+	"github.com/cgentry/gus/record"
+	"github.com/cgentry/gus/storage"
+	"strconv"
+	"fmt"
 	"strings"
+	"time"
 )
 
+var cmd_user_register string
+var cmd_user_check string
 // Register a new user with the system. If the record cannot be inserted, see what kind of error there is
-func (t *StorageMem) RegisterUser(user *record.User) error {
-	return registerUser( t.db , user )
+func (t *SqliteConn) RegisterUser(user *record.User) error {
+	return registerUser(t.db, user)
 }
 
 // This is the local function for testing purposes.
-func registerUser( db *sql.DB , user *record.User) error {
+func registerUser(db *sql.DB, user *record.User) error {
 
-	sql := `INSERT INTO User (` + DB_FIELD_LIST_ALL + `)
-		    VALUES (` + strings.Repeat( "?, ",  DB_FIELD_COUNT_ALL - 1) + `? )`
-	stmt, err := db.Prepare(sql)
+	err := checkUserExists(db, user) // Check to see if user exists
+
+	if err.Error() != storage.ErrUserNotFound.Error() {
+		return err
+	}
+
+	if cmd_user_register == "" {
+		cmd_user_register = fmt.Sprintf(
+			`INSERT INTO %s
+			(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+		    VALUES (%s %s)`,
+			record.USER_STORE_NAME ,
+
+			FIELD_DOMAIN,
+			FIELD_EMAIL,
+			FIELD_FULLNAME,
+			FIELD_GUID,
+			FIELD_LOGINNAME,
+			FIELD_PASSWORD,
+			FIELD_SALT,
+			FIELD_TOKEN,
+
+			FIELD_ISACTIVE,
+			FIELD_ISLOGGEDIN,
+			FIELD_ISSYSTEM ,
+
+			FIELD_FAILCOUNT,
+
+			FIELD_LOGIN_DT,
+			FIELD_LOGOUT_DT,
+			FIELD_LASTAUTH_DT,
+			FIELD_LASTFAILED_DT,
+			FIELD_MAX_SESSION_DT,
+			FIELD_TIMEOUT_DT,
+
+			FIELD_CREATED_DT,
+			FIELD_DELETED_DT,
+			FIELD_UPDATED_DT,
+
+			strings.Repeat(`?, `, 20),
+			`?` )
+
+	}
+	stmt, err := db.Prepare(cmd_user_register)
 
 	if err == nil {
-		_, err = stmt.Exec(
-			user.GetGuid(), user.GetFullName(), user.GetEmail(),
-			user.GetDomain(), user.GetLoginName(), user.GetPassword(),
-			user.GetToken(), user.GetSalt(), strconv.FormatBool(user.IsActive),
-			strconv.FormatBool(user.IsLoggedIn), user.GetLoginAtStr(), user.GetLogoutAtStr(),
-			user.GetLastAuthAtStr(), user.GetLastFailedAtStr(), user.GetFailCountStr(),
-			user.GetMaxSessionAtStr(), user.GetTimeoutStr(), user.GetCreatedAtStr(),
-			user.GetUpdatedAtStr(), user.GetDeletedAtStr() , strconv.FormatBool(user.IsSystem ))
+		now := time.Now()
+		fmtTime := now.Format(record.USER_TIME_STR)
+		result, err := stmt.Exec(
+			user.GetDomain(),
+			user.GetEmail(),
+			user.GetFullName(),
+			user.GetGuid(),
+			user.GetLoginName(),
+			user.GetPassword(),
+			user.GetSalt(),
+			user.GetToken(),
 
-	}
-	if err == nil {                                // Some error occured...see if there is a duplicate
-		return nil
-	}
-	code, err2 := checkUserExists(db , user)    // Check to see if user exists
+			strconv.FormatBool(user.IsActive),
+			strconv.FormatBool(user.IsLoggedIn),
+			strconv.FormatBool(user.IsSystem),
 
-	if code != service.CODE_USER_DOESNT_EXIST {    // Is not an invalid gUID
-		return err2
+			user.GetFailCountStr(),
+
+			user.GetLoginAtStr(),
+			user.GetLogoutAtStr(),
+			user.GetLastAuthAtStr(),
+			user.GetLastFailedAtStr(),
+			user.GetMaxSessionAtStr(),
+			user.GetTimeoutStr(),
+			fmtTime /*Created_DT */,
+			user.GetDeletedAtStr(),
+			fmtTime /*Updated_DT*/,
+
+		)
+
+		if err == nil { // Some error occured...see if there is a duplicate
+			if count, err := result.RowsAffected(); err != nil {
+				return nil
+			} else {
+				if count == 0 {
+					return storage.ErrUserNotRegistered
+				}
+			}
+		}
 	}
+
 	return err
 }
 
-func checkUserExists( db *sql.DB , user *record.User) ( int , error ) {
-	var guid , domain, email, login sql.NullString
+func checkUserExists(db *sql.DB, user *record.User) error {
+	var guid, domain, email, login sql.NullString
 
 	sql := `SELECT Guid, Domain , Email, LoginName
-			FROM User
+			FROM ` + record.USER_STORE_NAME + `
 			WHERE Guid = ? OR ( Domain = ? AND ( Email = ? OR LoginName = ?))`
 
 	stmt, err := db.Prepare(sql)
@@ -64,17 +130,17 @@ func checkUserExists( db *sql.DB , user *record.User) ( int , error ) {
 
 		if err == nil {
 			if guid.Valid && guid.String == user.GetGuid() {
-				return service.CODE_DUPLICATE_KEY, errors.New("User GUID exists")
+				return storage.ErrDuplicateGuid
 			}
 			if email.Valid && email.String == user.GetEmail() {
-				return service.CODE_DUPLICATE_EMAIL, errors.New("Email already registered")
+				return storage.ErrDuplicateEmail
 			}
 			if login.Valid && login.String == user.GetLoginName() {
-				return service.CODE_DUPLICATE_LOGIN_NAME, errors.New("Login name already exists")
+				return storage.ErrDuplicateLogin
 			}
 		}
-		return service.CODE_USER_DOESNT_EXIST, err
+		return storage.ErrUserNotFound
 	}
 
-	return service.CODE_INTERNAL_ERROR, err
+	return storage.ErrInternalDatabase
 }

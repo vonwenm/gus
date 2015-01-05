@@ -10,12 +10,12 @@ import (
 // CreateStore is a non-destructive storage creation mechanism. It can be called on the command line
 // with the option -C
 
- func (t *StorageMem) CreateStore() error {
-	 return createStore( t.db )
- }
+func (t *SqliteConn) CreateStore() error {
+	return createStore(t.db)
+}
 
-func createStore( db *sql.DB ) error {
-	sql := []string {
+func createStore(db *sql.DB) error {
+	sql := []string{
 		`CREATE TABLE IF NOT EXISTS User (
 			Guid         text primary key,
 			LoginName    text ,
@@ -46,7 +46,7 @@ func createStore( db *sql.DB ) error {
 
 			CreatedAt    text,
 			UpdatedAt    text,
-			DeletedAt    text);` ,
+			DeletedAt    text);`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS idxlogin      ON User(LoginName,Domain)`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS idxEmail      ON User(Email,Domain)`,
 		`CREATE        INDEX IF NOT EXISTS idxfullname   ON User(FullName);`,
@@ -54,7 +54,7 @@ func createStore( db *sql.DB ) error {
 		`CREATE        INDEX IF NOT EXISTS idxTimeoutAt  ON User(TimeoutAt);`,
 	}
 
-	for _,cmd := range sql {
+	for _, cmd := range sql {
 		if _, err := db.Exec(cmd); err != nil {
 			return err
 		}
@@ -62,4 +62,3 @@ func createStore( db *sql.DB ) error {
 
 	return nil
 }
-

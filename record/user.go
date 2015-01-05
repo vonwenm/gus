@@ -23,6 +23,8 @@ const (
 )
 
 const USER_TIME_STR = time.RFC3339
+// Standard name for the user store.
+const USER_STORE_NAME = "User"
 
 func init() {
 	userControl = new(UserControl)
@@ -92,11 +94,15 @@ func (u *User) String() string {
 	Domain:		'%s'
 	LoginName:	'%s'
 	Token:		'%s'
+	IsLoggedIn:	'%t'
+	IsActive:	'%t'
 	`,
 		u.GetGuid(),
 		u.GetDomain(),
 		u.GetLoginName(),
-		u.Token)
+		u.Token,
+		u.IsLoggedIn,
+		u.IsActive)
 
 }
 
@@ -152,6 +158,8 @@ func NewUser() *User {
 	user.SetDomain("")
 	user.Salt = CreateSalt(20)
 	user.Token = ""
+	user.IsActive = true
+	user.IsLoggedIn = false
 	return user
 }
 
