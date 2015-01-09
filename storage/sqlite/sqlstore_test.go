@@ -69,11 +69,10 @@ func TestSimpleRegisterCycle(t *testing.T) {
 		// By default, a registered user is NOT logged in...
 		err = db.UserLogin(user)
 		So(err, ShouldBeNil)
-		user,err = db.FetchUserByGuid(user.GetGuid())
+		user, err = db.FetchUserByGuid(user.GetGuid())
 
 		err = db.UserLogout(user)
 		So(err, ShouldBeNil)
-panic("DIE!")
 		err = db.UserLogout(user)
 		So(err.Error(), ShouldEqual, storage.ErrUserNotLoggedIn.Error())
 
@@ -81,6 +80,7 @@ panic("DIE!")
 	})
 
 }
+
 /*
 func TestBadFetches(t *testing.T) {
 

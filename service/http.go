@@ -33,11 +33,8 @@ func httpGetBody(r *http.Request) (requestPackage *record.Package, requestHead r
 
 // Given a GUID, find the user's record in the database. Only system users
 // will be returned. If none are found, return an error
-func httpFindSystemUser(caller_guid string) (*record.User, error) {
-
-	// We need the calling system's secret. This is the token for the caller
-	drive := storage.GetDriver()
-	caller, err := drive.FetchUserByGuid(caller_guid)
+func httpFindSystemUser(store *storage.Store, callerGuid string) (*record.User, error) {
+	caller, err := store.FetchUserByGuid(callerGuid)
 	if err != nil || !caller.IsSystem {
 		return nil, errors.New("Invalid user id or password")
 	}

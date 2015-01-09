@@ -1,8 +1,8 @@
 package response
 
 import (
-	"time"
 	"errors"
+	"time"
 )
 
 const (
@@ -13,27 +13,26 @@ type Signature struct {
 	sum string
 }
 
-func (s * Signature) SetSignature(newSum string) { s.sum = newSum }
-func (s * Signature) GetSignature() string { return s.sum }
+func (s *Signature) SetSignature(newSum string) { s.sum = newSum }
+func (s *Signature) GetSignature() string       { return s.sum }
 
 type Head struct {
-	Code		int
-	Message		string
-	Timestamp	time.Time
-	Sequence	int
-	* Signature
+	Code      int
+	Message   string
+	Timestamp time.Time
+	Sequence  int
+	*Signature
 }
 
-
-func NewHead( ) Head {
-	h := Head{ }
+func NewHead() Head {
+	h := Head{}
 	h.Signature = new(Signature)
 	h.Signature.SetSignature("")
 	h.Timestamp = time.Now()
 	return h
 }
 
-func ( h Head )Check( ) error {
+func (h Head) Check() error {
 	if h.Timestamp.IsZero() {
 		return errors.New("Head: No timestamp set")
 	}
@@ -44,7 +43,7 @@ func ( h Head )Check( ) error {
 			if diff > TIMESTAMP_EXPIRATION {
 				return errors.New("Head: Request in the future")
 			}
-		}else {
+		} else {
 			if diff < -1*TIMESTAMP_EXPIRATION {
 				return errors.New("Head: Request expired")
 			}
@@ -53,6 +52,6 @@ func ( h Head )Check( ) error {
 	return nil
 }
 
-func ( h Head ) IsTimeSet() bool {
-	return ! h.Timestamp.IsZero()
+func (h Head) IsTimeSet() bool {
+	return !h.Timestamp.IsZero()
 }

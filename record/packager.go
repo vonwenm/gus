@@ -3,6 +3,7 @@ package record
 import (
 	"crypto/hmac"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 )
 
@@ -18,7 +19,7 @@ type BodyInterface interface {
 }
 
 type PackagerInterface interface {
-	SetBody(*interface{}) (*Package, error)
+	SetBody(interface{}) (*Package, error)
 	SetBodyString(string) *PackagerInterface
 	SetHead(*HeaderInterface) *PackagerInterface
 	SetSecret([]byte) *PackagerInterface
@@ -56,7 +57,7 @@ func (p *Package) SetHead(h HeaderInterface) *Package {
 	return p
 }
 
-func (p *Package) SetBody(body *interface{}) (*Package, error) {
+func (p *Package) SetBody(body interface{}) (*Package, error) {
 	bodyJson, err := json.Marshal(body)
 	if err != nil {
 		return p, err
@@ -72,23 +73,27 @@ func (p *Package) SetBodyString(body string) *Package {
 }
 
 func (p *Package) setSignature() {
-	p.Head.SetSignature(p.computeSignature())
+	p.Head.SetSignature(base64.StdEncoding.EncodeToString(p.computeSignature()))
 }
 
-func (p *Package) computeSignature() string {
+func (p *Package) computeSignature() []byte {
 	if nil != p.secret && p.IsPackageComplete() {
 		mac := hmac.New(sha256.New, p.secret)
 		mac.Write([]byte(p.Body))
-		return string(mac.Sum(nil))
+		return mac.Sum(nil)
 	}
-	return ""
+	return []byte(``)
 }
 
 func (p *Package) GoodSignature() bool {
-	headSignature := []byte(p.Head.GetSignature())
-	if nil != p.secret && nil == headSignature {
-		return hmac.Equal(headSignature, []byte(p.computeSignature()))
+	if nil != p.secret {
+		if sig := p.Head.GetSignature(); sig != "" {
+			if headSignature, err := base64.StdEncoding.DecodeString(sig); err == nil {
+				return hmac.Equal(headSignature, p.computeSignature())
+			}
+		}
 	}
+
 	return false
 }
 

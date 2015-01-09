@@ -27,8 +27,11 @@ type UserReturn struct {
  */
 func NewReturnFromUser(user *User) UserReturn {
 
-	rtn := UserReturn{Token: user.CreateToken()}
+	rtn := UserReturn{}
 	rtn.Guid = user.GetGuid()
+	if user.Token == "" {
+		user.Token = user.CreateToken()
+	}
 	rtn.Token = user.Token
 
 	rtn.LoginAt = user.LoginAt.Format(time.RFC3339)

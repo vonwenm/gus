@@ -7,9 +7,14 @@ import (
 	"fmt"
 	"github.com/cgentry/gus/record"
 	"github.com/cgentry/gus/storage"
+	"strings"
 )
 
 func (t *SqliteConn) fetchUserByField(field, val string) (*record.User, error) {
+	field = strings.TrimSpace(field)
+	if field == `` {
+		return nil,storage.ErrEmptyFieldForLookup
+	}
 	if t.db == nil {
 		return nil, storage.ErrNotOpen
 	}

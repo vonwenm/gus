@@ -3,7 +3,6 @@ package service
 import (
 	//"net/http"
 	//"github.com/cgentry/gofig"
-	//"github.com/cgentry/gus/storage"
 	"github.com/cgentry/gus/record"
 	"github.com/cgentry/gus/record/request"
 	"github.com/cgentry/gus/record/response"
@@ -11,31 +10,29 @@ import (
 	//"github.com/cgentry/gosr"
 	"encoding/json"
 	"net/http"
+	"fmt"
 )
 
-/*
- * ServiceRegister will create a new record for the user.
- */
-
-func ServiceRegister(caller *record.User, requestPackage *record.Package) *record.Package {
-	var responseBody string
+// ServiceRegister will register a new user into the main store. This will package up the response into a common
+// response package after checking the integrity of the request.
+func ServiceRegister(store *storage.Store, caller *record.User, requestPackage *record.Package) *record.Package {
 
 	register := request.NewRegister()
 	responseHead := response.NewHead()
 
 	requestHead, OK := requestPackage.Head.(request.Head)
 	if !OK {
-		return serviceReturnResponse(caller, &responseHead, "", http.StatusInternalServerError, "Could not convert head to proper type")
+		return serviceReturnStorageError(caller, &responseHead, "", storage.ErrInvalidHeader )
 	}
 	responseHead.Sequence = requestHead.Sequence
 
 	if !requestPackage.GoodSignature() {
-		return serviceReturnResponse(caller, &responseHead, responseBody, http.StatusUnauthorized, "Invalid checksum")
+		return serviceReturnStorageError(caller, &responseHead, "", storage.ErrInvalidChecksum )
 	}
 
 	err := json.Unmarshal([]byte(requestPackage.Body), &register)
 	if err != nil {
-		return serviceReturnResponse(caller, &responseHead, responseBody, http.StatusBadRequest, err.Error())
+		return serviceReturnStorageError(caller, &responseHead, "", storage.ErrInvalidBody )
 	}
 
 	if err = requestHead.Check(); err != nil {
@@ -47,6 +44,9 @@ func ServiceRegister(caller *record.User, requestPackage *record.Package) *recor
 	if err = newUser.SetDomain(caller.GetDomain()); err != nil {
 		return serviceReturnResponse(caller, &responseHead, "", http.StatusBadRequest, err.Error())
 	}
+	if err = newUser.SetLoginName(register.Login); err != nil {
+		return serviceReturnResponse(caller, &responseHead, "", http.StatusBadRequest, err.Error())
+	}
 	if err = newUser.SetName(register.Name); err != nil {
 		return serviceReturnResponse(caller, &responseHead, "", http.StatusBadRequest, err.Error())
 	}
@@ -56,17 +56,12 @@ func ServiceRegister(caller *record.User, requestPackage *record.Package) *recor
 	if err = newUser.SetPassword(register.Password); err != nil {
 		return serviceReturnResponse(caller, &responseHead, "", http.StatusBadRequest, err.Error())
 	}
-	/*
-		for _, key := range qparam {
-			_,err := newUser.MapFieldToUser(key, requestPackage.Parameters.Get(key))
-			if err != nil {
-				answr.SetError( gosr.NewErrorWithText( CODE_BAD_CALL , err.Error() )).Encode(w)
-				return
-			}
-		}
-	*/
-	driver := storage.GetDriver()
-	driver.RegisterUser(newUser)
+
+	serr := store.RegisterUser(newUser)
+	if serr != storage.ErrStatusOk {
+		fmt.Println( err )
+		return serviceReturnStorageError(caller, &responseHead, "", serr)
+	}
 
 	returnUserJson, err := json.Marshal(record.NewReturnFromUser(newUser))
 	if err != nil {
@@ -75,6 +70,63 @@ func ServiceRegister(caller *record.User, requestPackage *record.Package) *recor
 	return serviceReturnResponse(caller, &responseHead, string(returnUserJson), http.StatusOK, "")
 
 }
+
+// ServiceLogin will Login a user that is registered in the store. This will package up the response into a common
+// response package after checking the integrity of the request.
+func ServiceLogin(store *storage.Store, caller *record.User, requestPackage *record.Package) *record.Package {
+
+	register := request.NewRegister()
+	responseHead := response.NewHead()
+
+	requestHead, OK := requestPackage.Head.(request.Head)
+	if !OK {
+		return serviceReturnStorageError(caller, &responseHead, "", storage.ErrInvalidHeader )
+	}
+	responseHead.Sequence = requestHead.Sequence
+
+	if !requestPackage.GoodSignature() {
+		return  serviceReturnStorageError(caller, &responseHead, "", storage.ErrInvalidChecksum )
+	}
+
+	err := json.Unmarshal([]byte(requestPackage.Body), &register)
+	if err != nil {
+		return serviceReturnStorageError(caller, &responseHead, "", storage.ErrInvalidBody )
+	}
+
+	if err = requestHead.Check(); err != nil {
+		return serviceReturnResponse(caller, &responseHead, "", http.StatusNotAcceptable, err.Error())
+	}
+
+	// Good domain - save it.
+	user,err := store.FetchUserByLogin( register.Login )
+	if err != nil {
+		return  serviceReturnStorageError(caller, &responseHead, "", err )
+	}
+	status, err := user.Login(register.Password)
+	if err != nil {
+		return serviceReturnResponse(caller, &responseHead, "", int(status), err.Error())
+	}
+
+	serr := store.UserLogin(user)
+	if serr != storage.ErrStatusOk {
+		return serviceReturnStorageError(caller, &responseHead, "", serr)
+	}
+	user,err = store.FetchUserByLogin( register.Login )
+	if err != nil {
+		return  serviceReturnStorageError(caller, &responseHead, "", err )
+	}
+
+	returnUserJson, err := json.Marshal(record.NewReturnFromUser(user))
+
+	if err != nil {
+
+		return serviceReturnResponse(caller, &responseHead, "", http.StatusInternalServerError, err.Error())
+	}
+
+	return serviceReturnResponse(caller, &responseHead, string(returnUserJson), http.StatusOK, "")
+
+}
+
 func serviceReturnResponse(caller *record.User, responseHead *response.Head, responseBody string, code int, msg string) *record.Package {
 	responseHead.Message = msg
 	responseHead.Code = code
@@ -87,41 +139,14 @@ func serviceReturnResponse(caller *record.User, responseHead *response.Head, res
 	return responsePackage
 }
 
-/*
-func ServiceRegister(c *gofig.Configuration , w http.ResponseWriter, r *http.Request , parseParms ParseParms) {
-
-	var newUser * record.User
-	caller , rqst , answr := parseParms(c, w, r)                        // Standardise format
-
-	if caller != nil {
-		qparam := []string{ KEY_EMAIL, KEY_LOGIN, KEY_NAME, KEY_PWD}    // Check normal fields
-		if err := requestPackage.Parameters.IsPresent(qparam); err != nil {       // .. if not present
-			answr.SetError(err).Encode(w)                               // .. send back and error
-		}else {                                                         // All fields preset - register
-			user := record.NewUser( )                					// Fetch the user's domain
-			user.SetDomain( caller.GetDomain() )
-			if err := user.Unmarshall(rqst.Content.GetContent()); err != nil {     // Pass in the body of the request
-				answr.SetErrorAndCode(err, http.StatusPreconditionFailed).Encode(w)
-			}else {                                                      // Good domain - save it.
-				newUser = record.NewUser()
-				newUser.SetDomain(caller.GetDomain())
-				for _, key := range qparam {
-					_,err := newUser.MapFieldToUser(key, rqst.Parameters.Get(key))
-					if err != nil {
-						answr.SetError( gosr.NewErrorWithText( CODE_BAD_CALL , err.Error() )).Encode(w)
-						return
-					}
-				}
-
-				driver := storage.GetDriver()
-				driver.RegisterUser(user)
-
-				userReturn := record.NewReturnFromUser(newUser)
-
-				ReturnUserJson(w, CODE_OK, &userReturn)
-			}
-		}
+func serviceReturnStorageError(caller *record.User, responseHead *response.Head, responseBody string, err error) *record.Package {
+	var code int
+	if serr,ok := err.(*storage.StorageError); ok {
+		code = serr.Code()
+	}else{
+		code = http.StatusInternalServerError
 	}
-	return
+	return serviceReturnResponse(caller,responseHead,responseBody,code,err.Error())
+
 }
-*/
+

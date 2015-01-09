@@ -1,9 +1,9 @@
 package storage
 
 import (
-	"errors"
 	"fmt"
 	"github.com/cgentry/gus/record"
+	"net/http"
 )
 
 const (
@@ -13,28 +13,64 @@ const (
 	BANK_USER_DATA_NOTFOUND = iota
 )
 
+type StorageError struct {
+	errorString string
+	errorCode   int
+}
+
+func NewStorageError(msg string, code int) *StorageError {
+	return &StorageError{errorString: msg, errorCode: code}
+}
+
+func NewStorageFromError( e error , code int ) *StorageError {
+	if e == nil {
+		return nil
+	}
+	return &StorageError{errorString: e.Error(), errorCode: code}
+
+}
+
+func (s *StorageError) Error() string {
+	return s.errorString
+}
+func (s *StorageError) Code() int {
+	return s.errorCode
+}
+
 /*
  *			Dynamic interfaces
  */
 var driverMap = make(map[string]Driver)
-var ErrNoDriverFound = errors.New("No storage driver found")
-var ErrNoSupport = errors.New("Storage driver does not support function call")
-var ErrNotOpen = errors.New("Storage driver is not open")
-var ErrAlreadyRegistered = errors.New("Storage driver already registered")
-var ErrInternalDatabase = errors.New("Internal storage error while executing operation")
 
-var ErrUserNotFound = errors.New("User not found")
-var ErrUserNotRegistered = errors.New("User not registered")
-var ErrInvalidGuid = errors.New("Invalid Guid for lookup")
-var ErrInvalidEmail = errors.New("Invalid email for lookup")
-var ErrInvalidToken = errors.New("Invalid token for lookup")
+var ErrInvalidHeader = NewStorageError("Invalid header in request" , http.StatusBadRequest)
+var ErrInvalidChecksum = NewStorageError("Invalid Checksum" , http.StatusBadRequest)
+var ErrInvalidBody = NewStorageError("Invalid body (mistmatch request?)", http.StatusBadRequest)
+var ErrEmptyFieldForLookup = NewStorageError("Lookup field is empty", http.StatusBadRequest)
 
-var ErrDuplicateGuid = errors.New("User GUID exists")
-var ErrDuplicateEmail = errors.New("Email already registered")
-var ErrDuplicateLogin = errors.New("Login name already exists")
 
-var ErrUserNotLoggedIn = errors.New("User not logged in")
-var ErrUserLoggedIn = errors.New("User already logged in")
+
+var ErrNoDriverFound = NewStorageError("No storage driver found", http.StatusInternalServerError)
+var ErrNoSupport = NewStorageError("Storage driver does not support function call", http.StatusNotImplemented)
+var ErrNotOpen = NewStorageError("Storage driver is not open", http.StatusInternalServerError)
+var ErrAlreadyRegistered = NewStorageError("Storage driver already registered", http.StatusInternalServerError)
+var ErrInternalDatabase = NewStorageError("Internal storage error while executing operation", http.StatusInternalServerError)
+
+var ErrUserNotFound = NewStorageError("User not found", http.StatusNotFound)
+
+var ErrInvalidGuid = NewStorageError("Invalid Guid for lookup", http.StatusNotFound)
+var ErrInvalidEmail = NewStorageError("Invalid email for lookup", http.StatusNotFound)
+var ErrInvalidToken = NewStorageError("Invalid token for lookup", http.StatusNotFound)
+
+var ErrDuplicateGuid = NewStorageError("User GUID already in use", http.StatusInternalServerError)
+var ErrDuplicateEmail = NewStorageError("Email registered", http.StatusConflict)
+var ErrDuplicateLogin = NewStorageError("Login name already exists", http.StatusConflict)
+
+var ErrUserNotRegistered = NewStorageError("User not registered", http.StatusBadRequest)
+var ErrUserNotLoggedIn = NewStorageError("User not logged in", http.StatusBadRequest)
+var ErrUserLoggedIn = NewStorageError("User already logged in", http.StatusBadRequest)
+var ErrUserNotActive = NewStorageError("User is not yet activated" , http.StatusUnauthorized)
+
+var ErrStatusOk = NewStorageError("", http.StatusOK)
 
 const driver_name = "Storage"
 

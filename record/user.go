@@ -23,6 +23,7 @@ const (
 )
 
 const USER_TIME_STR = time.RFC3339
+
 // Standard name for the user store.
 const USER_STORE_NAME = "User"
 

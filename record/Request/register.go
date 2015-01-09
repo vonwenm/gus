@@ -1,29 +1,26 @@
 package request
 
 import (
-	"strings"
 	"errors"
+	"strings"
 )
 
-
 type Register struct {
-	Login	string
-    Name	string
-    Email	string
-	Password	string
+	Login    string
+	Name     string
+	Email    string
+	Password string
 }
 
-
-func NewRegister() * Register {
+func NewRegister() *Register {
 	return &Register{}
 }
 
-
-func ( r * Register ) Check() error {
-	r.Login = strings.TrimSpace( r.Login )
-	r.Name  = strings.TrimSpace( r.Name )
-	r.Email = strings.TrimSpace( r.Email )
-	r.Password = strings.TrimSpace( r.Password )
+func (r *Register) Check() error {
+	r.Login = strings.TrimSpace(r.Login)
+	r.Name = strings.TrimSpace(r.Name)
+	r.Email = strings.TrimSpace(r.Email)
+	r.Password = strings.TrimSpace(r.Password)
 	if r.Login == "" {
 		return errors.New("Login cannot be blank")
 	}
@@ -36,7 +33,7 @@ func ( r * Register ) Check() error {
 	if r.Password == "" {
 		return errors.New("Password cannot be blank")
 	}
-	if len( r.Password ) < 6 {
+	if len(r.Password) < 6 {
 		return errors.New("Password length is too short")
 	}
 

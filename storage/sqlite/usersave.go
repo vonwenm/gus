@@ -26,15 +26,23 @@ var cmd_user_update string
 // Condition: The user must not be logged in and must be active
 func (t *SqliteConn) UserLogin(user *record.User) error {
 
+	if ! user.IsActive {
+		return storage.ErrUserNotActive
+	}
 	if cmd_user_login == "" {
 		cmd_user_login = fmt.Sprintf(`UPDATE %s
 			 SET %s = ?,  %s = ?,
 			     %s = ?,  %s = ?,
 			     %s = ?
-           WHERE %s = ? AND %s = ? AND %s = ?`,
+           WHERE %s = ? AND %s = ?`,
 			record.USER_STORE_NAME,
-			FIELD_TOKEN, FIELD_ISLOGGEDIN, FIELD_LASTAUTH_DT, FIELD_LOGIN_DT, FIELD_UPDATED_DT,
-			FIELD_GUID, FIELD_ISLOGGEDIN, FIELD_ISACTIVE)
+			FIELD_TOKEN,
+			FIELD_ISLOGGEDIN,
+			FIELD_LASTAUTH_DT,
+			FIELD_LOGIN_DT,
+			FIELD_UPDATED_DT,
+			FIELD_GUID,
+			FIELD_ISACTIVE)
 
 	}
 	now := time.Now()
@@ -46,20 +54,18 @@ func (t *SqliteConn) UserLogin(user *record.User) error {
 		fmtTime,
 		fmtTime,
 		user.GetGuid(),
-		strconv.FormatBool(false),
 		strconv.FormatBool(true))
 	if err != nil {
 		return err
 	}
 	if numRows, err := result.RowsAffected(); err != nil {
 		return err
-	} else {
-		if numRows == 0 {
+	} else if numRows == 0 {
 			return storage.ErrUserLoggedIn
-		}
+
 	}
 
-	return err
+	return storage.ErrStatusOk
 
 }
 

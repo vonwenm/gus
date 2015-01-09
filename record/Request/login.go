@@ -1,7 +1,6 @@
 package request
 
 type Login struct {
-	Login		string
-	Password	string
+	Login    string
+	Password string
 }
-

@@ -1,8 +1,8 @@
 package request
 
 import (
-	"time"
 	"errors"
+	"time"
 )
 
 const (
@@ -13,15 +13,15 @@ type Signature struct {
 	sum string
 }
 
-func (s * Signature) SetSignature(newSum string) { s.sum = newSum }
-func (s * Signature) GetSignature() string { return s.sum }
+func (s *Signature) SetSignature(newSum string) { s.sum = newSum }
+func (s *Signature) GetSignature() string       { return s.sum }
 
 // Head implements the record.HeaderInterface
 type Head struct {
-	Domain        string
-	Id            string
-	Timestamp     time.Time
-	Sequence      int
+	Domain    string
+	Id        string
+	Timestamp time.Time
+	Sequence  int
 	*Signature
 }
 
@@ -52,7 +52,7 @@ func (h Head) Check() error {
 			if diff > TIMESTAMP_EXPIRATION {
 				return errors.New("Head: Request in the future")
 			}
-		}else {
+		} else {
 			if diff < -1*TIMESTAMP_EXPIRATION {
 				return errors.New("Head: Request expired")
 			}
@@ -61,8 +61,6 @@ func (h Head) Check() error {
 	return nil
 }
 
-
 func (h Head) IsTimeSet() bool {
 	return !h.Timestamp.IsZero()
 }
-
