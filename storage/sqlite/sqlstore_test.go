@@ -25,6 +25,8 @@ func TestSimpleRegisterCycle(t *testing.T) {
 	clearSqliteTest()
 	db, err := storage.Open(STORAGE_IDENTITY, STORE_LOCAL)
 	db.CreateStore()
+	defer clearSqliteTest()
+
 	Convey("Create User", t, func() {
 		So(err, ShouldBeNil)
 
@@ -35,8 +37,8 @@ func TestSimpleRegisterCycle(t *testing.T) {
 		user.SetEmail("et@home.com")
 		user.SetLoginName("justlogin")
 
-		err = db.RegisterUser(user) // Register new user
-		So(err, ShouldBeNil)
+		serr := db.RegisterUser(user) // Register new user
+		So(serr.Error(), ShouldBeBlank)
 
 		// FETCH BY EMAIL
 		user2, err := db.FetchUserByGuid(user.GetGuid())
@@ -68,7 +70,7 @@ func TestSimpleRegisterCycle(t *testing.T) {
 
 		// By default, a registered user is NOT logged in...
 		err = db.UserLogin(user)
-		So(err, ShouldBeNil)
+		So(err.Error(), ShouldBeBlank)
 		user, err = db.FetchUserByGuid(user.GetGuid())
 
 		err = db.UserLogout(user)
