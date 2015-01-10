@@ -58,7 +58,7 @@ func (t *MockConn) RegisterUser(u *record.User) error {
 	t.routineCalled(`RegisterUser`)
 	err := t.lookupError(`RegisterUser`)
 	if err != nil {
-		return storage.NewStorageError( err.Error(), 500 )
+		return storage.NewStorageError(err.Error(), 500)
 	}
 	return nil
 }

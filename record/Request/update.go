@@ -6,10 +6,10 @@ import (
 )
 
 type Update struct {
-	Token    string
-	Login    string
-	Name     string
-	Email    string
+	Token       string
+	Login       string
+	Name        string
+	Email       string
 	NewPassword string
 	OldPassword string
 }

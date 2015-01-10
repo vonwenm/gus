@@ -21,6 +21,7 @@ func NewService(c *gofig.Configuration) {
 
 	//http.ListenAndServe(":8181", nil)
 }
+
 /*
 func ServiceLogout(c *gofig.Configuration, w http.ResponseWriter, r *http.Request) {
 	return

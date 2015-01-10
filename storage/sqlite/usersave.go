@@ -26,7 +26,7 @@ var cmd_user_update string
 // Condition: The user must not be logged in and must be active
 func (t *SqliteConn) UserLogin(user *record.User) error {
 
-	if ! user.IsActive {
+	if !user.IsActive {
 		return storage.ErrUserNotActive
 	}
 	if cmd_user_login == "" {
@@ -61,7 +61,7 @@ func (t *SqliteConn) UserLogin(user *record.User) error {
 	if numRows, err := result.RowsAffected(); err != nil {
 		return err
 	} else if numRows == 0 {
-			return storage.ErrUserLoggedIn
+		return storage.ErrUserLoggedIn
 
 	}
 

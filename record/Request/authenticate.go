@@ -1,7 +1,7 @@
 package request
 
 type Authenticate struct {
-	Token    string
+	Token string
 }
 
 func NewAuthenticate() *Authenticate {

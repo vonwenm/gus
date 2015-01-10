@@ -13,7 +13,7 @@ import (
 func (t *SqliteConn) fetchUserByField(field, val string) (*record.User, error) {
 	field = strings.TrimSpace(field)
 	if field == `` {
-		return nil,storage.ErrEmptyFieldForLookup
+		return nil, storage.ErrEmptyFieldForLookup
 	}
 	if t.db == nil {
 		return nil, storage.ErrNotOpen

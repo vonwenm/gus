@@ -22,7 +22,7 @@ func NewStorageError(msg string, code int) *StorageError {
 	return &StorageError{errorString: msg, errorCode: code}
 }
 
-func NewStorageFromError( e error , code int ) *StorageError {
+func NewStorageFromError(e error, code int) *StorageError {
 	if e == nil {
 		return nil
 	}
@@ -42,12 +42,10 @@ func (s *StorageError) Code() int {
  */
 var driverMap = make(map[string]Driver)
 
-var ErrInvalidHeader = NewStorageError("Invalid header in request" , http.StatusBadRequest)
-var ErrInvalidChecksum = NewStorageError("Invalid Checksum" , http.StatusBadRequest)
+var ErrInvalidHeader = NewStorageError("Invalid header in request", http.StatusBadRequest)
+var ErrInvalidChecksum = NewStorageError("Invalid Checksum", http.StatusBadRequest)
 var ErrInvalidBody = NewStorageError("Invalid body (mistmatch request?)", http.StatusBadRequest)
 var ErrEmptyFieldForLookup = NewStorageError("Lookup field is empty", http.StatusBadRequest)
-
-
 
 var ErrNoDriverFound = NewStorageError("No storage driver found", http.StatusInternalServerError)
 var ErrNoSupport = NewStorageError("Storage driver does not support function call", http.StatusNotImplemented)
@@ -68,7 +66,7 @@ var ErrDuplicateLogin = NewStorageError("Login name already exists", http.Status
 var ErrUserNotRegistered = NewStorageError("User not registered", http.StatusBadRequest)
 var ErrUserNotLoggedIn = NewStorageError("User not logged in", http.StatusBadRequest)
 var ErrUserLoggedIn = NewStorageError("User already logged in", http.StatusBadRequest)
-var ErrUserNotActive = NewStorageError("User is not yet activated" , http.StatusUnauthorized)
+var ErrUserNotActive = NewStorageError("User is not yet activated", http.StatusUnauthorized)
 
 var ErrStatusOk = NewStorageError("", http.StatusOK)
 

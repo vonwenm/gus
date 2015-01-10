@@ -9,8 +9,8 @@ import (
 	"github.com/cgentry/gus/storage"
 	//"github.com/cgentry/gosr"
 	"encoding/json"
-	"net/http"
 	"fmt"
+	"net/http"
 )
 
 // ServiceRegister will register a new user into the main store. This will package up the response into a common
@@ -22,17 +22,17 @@ func ServiceRegister(store *storage.Store, caller *record.User, requestPackage *
 
 	requestHead, OK := requestPackage.Head.(request.Head)
 	if !OK {
-		return serviceReturnStorageError(caller, &responseHead, "", storage.ErrInvalidHeader )
+		return serviceReturnStorageError(caller, &responseHead, "", storage.ErrInvalidHeader)
 	}
 	responseHead.Sequence = requestHead.Sequence
 
 	if !requestPackage.GoodSignature() {
-		return serviceReturnStorageError(caller, &responseHead, "", storage.ErrInvalidChecksum )
+		return serviceReturnStorageError(caller, &responseHead, "", storage.ErrInvalidChecksum)
 	}
 
 	err := json.Unmarshal([]byte(requestPackage.Body), &register)
 	if err != nil {
-		return serviceReturnStorageError(caller, &responseHead, "", storage.ErrInvalidBody )
+		return serviceReturnStorageError(caller, &responseHead, "", storage.ErrInvalidBody)
 	}
 
 	if err = requestHead.Check(); err != nil {
@@ -59,7 +59,7 @@ func ServiceRegister(store *storage.Store, caller *record.User, requestPackage *
 
 	serr := store.RegisterUser(newUser)
 	if serr != storage.ErrStatusOk {
-		fmt.Println( err )
+		fmt.Println(err)
 		return serviceReturnStorageError(caller, &responseHead, "", serr)
 	}
 
@@ -67,7 +67,7 @@ func ServiceRegister(store *storage.Store, caller *record.User, requestPackage *
 	if err != nil {
 		return serviceReturnResponse(caller, &responseHead, "", http.StatusInternalServerError, err.Error())
 	}
-	return serviceReturnStorageError(caller, &responseHead, string(returnUserJson), storage.ErrStatusOk )
+	return serviceReturnStorageError(caller, &responseHead, string(returnUserJson), storage.ErrStatusOk)
 
 }
 
@@ -80,17 +80,17 @@ func ServiceLogin(store *storage.Store, caller *record.User, requestPackage *rec
 
 	requestHead, OK := requestPackage.Head.(request.Head)
 	if !OK {
-		return serviceReturnStorageError(caller, &responseHead, "", storage.ErrInvalidHeader )
+		return serviceReturnStorageError(caller, &responseHead, "", storage.ErrInvalidHeader)
 	}
 	responseHead.Sequence = requestHead.Sequence
 
 	if !requestPackage.GoodSignature() {
-		return  serviceReturnStorageError(caller, &responseHead, "", storage.ErrInvalidChecksum )
+		return serviceReturnStorageError(caller, &responseHead, "", storage.ErrInvalidChecksum)
 	}
 
 	err := json.Unmarshal([]byte(requestPackage.Body), &login)
 	if err != nil {
-		return serviceReturnStorageError(caller, &responseHead, "", storage.ErrInvalidBody )
+		return serviceReturnStorageError(caller, &responseHead, "", storage.ErrInvalidBody)
 	}
 
 	if err = requestHead.Check(); err != nil {
@@ -98,9 +98,9 @@ func ServiceLogin(store *storage.Store, caller *record.User, requestPackage *rec
 	}
 
 	// Good domain - save it.
-	user,err := store.FetchUserByLogin( login.Login )
+	user, err := store.FetchUserByLogin(login.Login)
 	if err != nil {
-		return  serviceReturnStorageError(caller, &responseHead, "", err )
+		return serviceReturnStorageError(caller, &responseHead, "", err)
 	}
 	status, err := user.Login(login.Password)
 	if err != nil {
@@ -111,9 +111,9 @@ func ServiceLogin(store *storage.Store, caller *record.User, requestPackage *rec
 	if serr != storage.ErrStatusOk {
 		return serviceReturnStorageError(caller, &responseHead, "", serr)
 	}
-	user,err = store.FetchUserByLogin( login.Login )
+	user, err = store.FetchUserByLogin(login.Login)
 	if err != nil {
-		return  serviceReturnStorageError(caller, &responseHead, "", err )
+		return serviceReturnStorageError(caller, &responseHead, "", err)
 	}
 
 	returnUserJson, err := json.Marshal(record.NewReturnFromUser(user))
@@ -123,15 +123,15 @@ func ServiceLogin(store *storage.Store, caller *record.User, requestPackage *rec
 		return serviceReturnResponse(caller, &responseHead, "", http.StatusInternalServerError, err.Error())
 	}
 
-	return serviceReturnStorageError(caller, &responseHead, string(returnUserJson), storage.ErrStatusOk )
+	return serviceReturnStorageError(caller, &responseHead, string(returnUserJson), storage.ErrStatusOk)
 
 }
 
 func ServiceLogout(store *storage.Store, caller *record.User, requestPackage *record.Package) *record.Package {
 	var returnUserJson string
 	responseHead := response.NewHead()
-	
-	return serviceReturnStorageError(caller, &responseHead, string(returnUserJson), storage.ErrStatusOk )
+
+	return serviceReturnStorageError(caller, &responseHead, string(returnUserJson), storage.ErrStatusOk)
 }
 func serviceReturnResponse(caller *record.User, responseHead *response.Head, responseBody string, code int, msg string) *record.Package {
 	responseHead.Message = msg
@@ -147,12 +147,11 @@ func serviceReturnResponse(caller *record.User, responseHead *response.Head, res
 
 func serviceReturnStorageError(caller *record.User, responseHead *response.Head, responseBody string, err error) *record.Package {
 	var code int
-	if serr,ok := err.(*storage.StorageError); ok {
+	if serr, ok := err.(*storage.StorageError); ok {
 		code = serr.Code()
-	}else{
+	} else {
 		code = http.StatusInternalServerError
 	}
-	return serviceReturnResponse(caller,responseHead,responseBody,code,err.Error())
+	return serviceReturnResponse(caller, responseHead, responseBody, code, err.Error())
 
 }
-

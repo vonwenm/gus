@@ -49,10 +49,9 @@ func TestSimpleRegister(t *testing.T) {
 
 		So(p.GetSignature(), ShouldNotEqual, "")
 
-
-		fmt.Println( "Call serviceregister")
+		fmt.Println("Call serviceregister")
 		pack := ServiceRegister(store, caller, p)
-		fmt.Println( "Return serviceregister")
+		fmt.Println("Return serviceregister")
 		fmt.Println(pack)
 
 		rtnHead := pack.Head.(*response.Head)
@@ -68,7 +67,7 @@ func TestSimpleRegister(t *testing.T) {
 		So(rtnHead.Code, ShouldEqual, storage.ErrDuplicateEmail.Code())
 
 	})
-	Convey("Simple login" , t , func() {
+	Convey("Simple login", t, func() {
 		reg := request.NewRegister()
 		reg.Login = "*Login"
 		reg.Password = "12345678abcdefg"
@@ -84,7 +83,7 @@ func TestSimpleRegister(t *testing.T) {
 
 		So(p.GetSignature(), ShouldNotEqual, "")
 
-		pack := ServiceLogin(store,caller,p)
+		pack := ServiceLogin(store, caller, p)
 		fmt.Println(pack)
 		rtnHead := pack.Head.(*response.Head)
 		So(rtnHead.Message, ShouldBeBlank)
@@ -92,4 +91,3 @@ func TestSimpleRegister(t *testing.T) {
 
 	})
 }
-

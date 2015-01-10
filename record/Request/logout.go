@@ -1,9 +1,9 @@
 package request
 
 type Logout struct {
-	Token    string
+	Token string
 }
 
-func NewLogout() * Logout {
+func NewLogout() *Logout {
 	return &Logout{}
 }

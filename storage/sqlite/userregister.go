@@ -57,12 +57,12 @@ func registerUser(db *sql.DB, user *record.User) *storage.StorageError {
 			`?`)
 
 	}
-	fmt.Println( 60 )
+	fmt.Println(60)
 	stmt, err := db.Prepare(cmd_user_register)
-	fmt.Println( 62 )
+	fmt.Println(62)
 	if err != nil {
-		fmt.Println( 64 )
-		return storage.NewStorageFromError( err, http.StatusInternalServerError)
+		fmt.Println(64)
+		return storage.NewStorageFromError(err, http.StatusInternalServerError)
 	}
 	now := time.Now()
 	fmtTime := now.Format(record.USER_TIME_STR)
@@ -89,24 +89,24 @@ func registerUser(db *sql.DB, user *record.User) *storage.StorageError {
 		fmtTime, /*Updated_DT*/
 	)
 	if err != nil {
-		fmt.Println( 92 )
-		return storage.NewStorageFromError( err, http.StatusInternalServerError)
+		fmt.Println(92)
+		return storage.NewStorageFromError(err, http.StatusInternalServerError)
 	}
 
 	if count, err := result.RowsAffected(); err != nil {
-		fmt.Println( 97 )
-		return storage.NewStorageFromError( err, http.StatusInternalServerError)
+		fmt.Println(97)
+		return storage.NewStorageFromError(err, http.StatusInternalServerError)
 	} else {
 		if count == 0 {
-			fmt.Println( 101 )
+			fmt.Println(101)
 			return storage.ErrUserNotRegistered
 		}
 	}
-	fmt.Println( 105 )
+	fmt.Println(105)
 	return storage.ErrStatusOk
 }
 
-func checkUserExists(db *sql.DB, user *record.User) * storage.StorageError {
+func checkUserExists(db *sql.DB, user *record.User) *storage.StorageError {
 	var guid, domain, email, login sql.NullString
 
 	sql := `SELECT Guid, Domain , Email, LoginName
