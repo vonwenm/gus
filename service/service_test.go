@@ -9,11 +9,10 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
 
+	"encoding/json"
 	"fmt"
 	_ "github.com/cgentry/gus/encryption/drivers/plaintext"
 	_ "github.com/cgentry/gus/storage/sqlite"
-	"encoding/json"
-
 )
 
 func generateCaller() *record.User {
@@ -23,7 +22,7 @@ func generateCaller() *record.User {
 
 }
 
-func TestBadRegister( t * testing.T){
+func TestBadRegister(t *testing.T) {
 	caller := generateCaller()
 	store, _ := storage.Open("sqlite", ":memory:")
 	defer store.Close()
@@ -31,20 +30,20 @@ func TestBadRegister( t * testing.T){
 
 	Convey("Send Bad Requests in", t, func() {
 
-		pack := ServiceRegister(store,caller,nil)
+		pack := ServiceRegister(store, caller, nil)
 		rtnHead := pack.Head.(*response.Head)
 		So(rtnHead.Message, ShouldContainSubstring, storage.ErrInvalidHeader.Error())
 		So(rtnHead.Code, ShouldEqual, storage.ErrInvalidHeader.Code())
-		So(pack.IsBodySet(), ShouldBeFalse )
+		So(pack.IsBodySet(), ShouldBeFalse)
 		So(pack.Body, ShouldBeBlank)
 
 		p := record.NewPackage()
 		p.Head = request.NewHead()
-		pack = ServiceRegister(store,caller,p)
+		pack = ServiceRegister(store, caller, p)
 		rtnHead = pack.Head.(*response.Head)
 		So(rtnHead.Message, ShouldContainSubstring, `No domain`)
 		So(rtnHead.Code, ShouldEqual, storage.ErrInvalidHeader.Code())
-		So(pack.IsBodySet(), ShouldBeFalse )
+		So(pack.IsBodySet(), ShouldBeFalse)
 		So(pack.Body, ShouldBeBlank)
 
 		h := request.NewHead()
@@ -52,11 +51,11 @@ func TestBadRegister( t * testing.T){
 		h.Id = `ID`
 		p.Head = h
 
-		pack = ServiceRegister(store,caller,p)
+		pack = ServiceRegister(store, caller, p)
 		rtnHead = pack.Head.(*response.Head)
 		So(rtnHead.Message, ShouldContainSubstring, `Invalid Checksum`)
 		So(rtnHead.Code, ShouldEqual, storage.ErrInvalidHeader.Code())
-		So(pack.IsBodySet(), ShouldBeFalse )
+		So(pack.IsBodySet(), ShouldBeFalse)
 		So(pack.Body, ShouldBeBlank)
 	})
 }
@@ -99,11 +98,11 @@ func TestSimpleRegister(t *testing.T) {
 		So(rtnHead.Code, ShouldEqual, 200)
 
 		userRtn := record.UserReturn{}
-		err := json.Unmarshal( []byte(pack.Body), &userRtn )
-		So( err, ShouldBeNil)
-		So( userRtn.LoginName, ShouldEqual, reg.Login )
-		So( userRtn.FullName, ShouldEqual, reg.Name)
-		So( userRtn.Email, ShouldEqual, reg.Email)
+		err := json.Unmarshal([]byte(pack.Body), &userRtn)
+		So(err, ShouldBeNil)
+		So(userRtn.LoginName, ShouldEqual, reg.Login)
+		So(userRtn.FullName, ShouldEqual, reg.Name)
+		So(userRtn.Email, ShouldEqual, reg.Email)
 
 		// DUPLICATE EMAIL ERROR
 		pack = ServiceRegister(store, caller, p)
@@ -114,8 +113,7 @@ func TestSimpleRegister(t *testing.T) {
 		So(rtnHead.Message, ShouldEqual, storage.ErrDuplicateEmail.Error())
 		So(rtnHead.Code, ShouldEqual, storage.ErrDuplicateEmail.Code())
 
-		So( len( pack.Body), ShouldEqual, 0 )	// No data when an error occurs
-
+		So(len(pack.Body), ShouldEqual, 0) // No data when an error occurs
 
 	})
 	Convey("Simple login/logout", t, func() {
@@ -141,28 +139,28 @@ func TestSimpleRegister(t *testing.T) {
 		So(rtnHead.Code, ShouldEqual, 200)
 
 		userRtn := record.UserReturn{}
-		err := json.Unmarshal( []byte(pack.Body), &userRtn )
-		So( err, ShouldBeNil)
-		So( userRtn.LoginName, ShouldEqual, reqLogin.Login )
-		So( userRtn.FullName, ShouldEqual, `*FullName`)
-		So( userRtn.Email, ShouldEqual, `johndoe@golang.go`)
+		err := json.Unmarshal([]byte(pack.Body), &userRtn)
+		So(err, ShouldBeNil)
+		So(userRtn.LoginName, ShouldEqual, reqLogin.Login)
+		So(userRtn.FullName, ShouldEqual, `*FullName`)
+		So(userRtn.Email, ShouldEqual, `johndoe@golang.go`)
 
 		reqLogout := request.NewLogout()
 		reqLogout.Token = userRtn.Token
 		p.SetBody(reqLogout)
-		pack = ServiceLogout(store,caller,p)
+		pack = ServiceLogout(store, caller, p)
 
 		rtnHead = pack.Head.(*response.Head)
 		So(rtnHead.Message, ShouldBeBlank)
 		So(rtnHead.Code, ShouldEqual, 200)
-		So(pack.IsBodySet(), ShouldBeFalse )
+		So(pack.IsBodySet(), ShouldBeFalse)
 		So(pack.Body, ShouldBeBlank)
 
-		pack = ServiceLogout(store,caller,p)
+		pack = ServiceLogout(store, caller, p)
 		rtnHead = pack.Head.(*response.Head)
 		So(rtnHead.Message, ShouldEqual, storage.ErrUserNotLoggedIn.Error())
 		So(rtnHead.Code, ShouldEqual, storage.ErrUserNotLoggedIn.Code())
-		So(pack.IsBodySet(), ShouldBeFalse )
+		So(pack.IsBodySet(), ShouldBeFalse)
 		So(pack.Body, ShouldBeBlank)
 	})
 
@@ -189,7 +187,42 @@ func TestSimpleRegister(t *testing.T) {
 		So(rtnHead.Message, ShouldEqual, storage.ErrUserNotFound.Error())
 		So(rtnHead.Code, ShouldEqual, storage.ErrUserNotFound.Code())
 
-		So(pack.IsBodySet(), ShouldBeFalse )
+		So(pack.IsBodySet(), ShouldBeFalse)
+		So(pack.Body, ShouldBeBlank)
+
+		p.SetBody(`{Login: 10:21:55}`)
+		pack = ServiceLogin(store, caller, p)
+		rtnHead = pack.Head.(*response.Head)
+		So(rtnHead.Message, ShouldNotBeBlank)
+		So(rtnHead.Message, ShouldEqual, storage.ErrInvalidBody.Error())
+		So(rtnHead.Code, ShouldEqual, storage.ErrInvalidBody.Code())
+
+		So(pack.IsBodySet(), ShouldBeFalse)
+		So(pack.Body, ShouldBeBlank)
+
+	})
+
+	Convey("Bad logout", t, func() {
+
+		h := request.NewHead()
+		h.Domain = `Test`
+		h.Id = `ID`
+		p := record.NewPackage()
+
+		p.SetHead(h)
+		p.SetSecret([]byte(`secret`))
+		p.SetBody(`{Token: 10:21:55}`)
+
+		So(p.GetSignature(), ShouldNotEqual, "")
+
+		pack := ServiceLogout(store, caller, p)
+		fmt.Println(pack)
+		rtnHead := pack.Head.(*response.Head)
+		So(rtnHead.Message, ShouldNotBeBlank)
+		So(rtnHead.Message, ShouldEqual, storage.ErrInvalidBody.Error())
+		So(rtnHead.Code, ShouldEqual, storage.ErrInvalidBody.Code())
+
+		So(pack.IsBodySet(), ShouldBeFalse)
 		So(pack.Body, ShouldBeBlank)
 
 	})

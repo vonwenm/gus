@@ -3,13 +3,12 @@ package service
 import (
 	//"net/http"
 	//"github.com/cgentry/gofig"
+	"encoding/json"
 	"github.com/cgentry/gus/record"
 	"github.com/cgentry/gus/record/request"
 	"github.com/cgentry/gus/record/response"
 	"github.com/cgentry/gus/storage"
-	"encoding/json"
 	"net/http"
-	//"fmt"
 )
 
 // ServiceRegister will register a new user into the main store. This will package up the response into a common
@@ -76,7 +75,6 @@ func ServiceLogin(store *storage.Store, caller *record.User, requestPackage *rec
 
 	responseHead := response.NewHead()
 	responseHead.Sequence = requestHead.Sequence
-
 
 	login := request.NewLogin()
 	err := json.Unmarshal([]byte(requestPackage.Body), &login)
@@ -237,7 +235,6 @@ func serviceReturnResponse(caller *record.User, responseHead *response.Head, res
 	responsePackage.SetBodyString(responseBody)
 	responsePackage.SetHead(responseHead)
 	responsePackage.ClearSecret()
-
 
 	return responsePackage
 }

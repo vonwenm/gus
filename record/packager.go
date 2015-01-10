@@ -105,6 +105,6 @@ func (p *Package) SetSecret(NewSecret []byte) {
 	p.secret = NewSecret
 }
 
-func (p *Package) ClearSecret(){
+func (p *Package) ClearSecret() {
 	p.secret = nil
 }

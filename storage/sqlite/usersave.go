@@ -13,9 +13,9 @@ import (
 	"fmt"
 	"github.com/cgentry/gus/record"
 	"github.com/cgentry/gus/storage"
+	"net/http"
 	"strconv"
 	"time"
-	"net/http"
 )
 
 var cmd_user_login string
@@ -108,16 +108,16 @@ func (t *SqliteConn) UserLogout(user *record.User) error {
 	now := time.Now()
 	fmtTime := now.Format(record.USER_TIME_STR)
 	result, err := t.db.Exec(cmd_user_logout,
-		strconv.FormatBool(false 	/* FIELD_ISLOGGEDIN */),
-		fmtTime, 					// FIELD_LOGOUT_DT
-		fmtTime,					// FIELD_UPDATED_DT
-		user.GetGuid(), 			// FIELD_GUID
-		strconv.FormatBool(true))	// FIELD_ISLOGGEDIN
+		strconv.FormatBool(false /* FIELD_ISLOGGEDIN */),
+		fmtTime,                  // FIELD_LOGOUT_DT
+		fmtTime,                  // FIELD_UPDATED_DT
+		user.GetGuid(),           // FIELD_GUID
+		strconv.FormatBool(true)) // FIELD_ISLOGGEDIN
 	if err != nil {
-		return storage.NewStorageFromError( err , http.StatusInternalServerError)
+		return storage.NewStorageFromError(err, http.StatusInternalServerError)
 	}
 	if numRows, err := result.RowsAffected(); err != nil {
-		return storage.NewStorageFromError( err , http.StatusNotFound)
+		return storage.NewStorageFromError(err, http.StatusNotFound)
 	} else {
 		if numRows == 0 {
 			return storage.ErrUserNotLoggedIn
@@ -169,23 +169,23 @@ func (t *SqliteConn) UserUpdate(user *record.User) error {
 	now := time.Now()
 	fmtTime := now.Format(record.USER_TIME_STR)
 	_, err := t.db.Exec(cmd_user_update,
-		user.GetFullName(), 		/* FIELD_FULLNAME		*/
-		user.GetEmail(),			/* FIELD_EMAIL	  		*/
-		user.GetLoginName(), 		/* FIELD_LOGINNAME 		*/
-		user.GetPassword(),			/* FIELD_PASSWORD 		*/
-		user.GetToken(), 			/* FIELD_TOKEN 			*/
-		user.GetLoginAtStr(),		/* FIELD_LOGIN_DT 		*/
-		user.GetLogoutAtStr(), 		/* FIELD_LOGOUT_DT 		*/
-		user.GetLastAuthAtStr(),	/* FIELD_LASTAUTH_DT 	*/
-		user.GetLastFailedAtStr(), 	/* FIELD_LASTFAILED_DT 	*/
-		user.GetFailCountStr(),		/* FIELD_FAILCOUNT 		*/
-		user.GetMaxSessionAtStr(), 	/* FIELD_MAX_SESSION_DT */
-		user.GetTimeoutStr(),		/* FIELD_TIMEOUT_DT 	*/
-		fmtTime, 					/* FIELD_UPDATED_DT 	*/
-		user.GetDeletedAtStr(),		/* FIELD_DELETED_DT 	*/
+		user.GetFullName(),        /* FIELD_FULLNAME		*/
+		user.GetEmail(),           /* FIELD_EMAIL	  		*/
+		user.GetLoginName(),       /* FIELD_LOGINNAME 		*/
+		user.GetPassword(),        /* FIELD_PASSWORD 		*/
+		user.GetToken(),           /* FIELD_TOKEN 			*/
+		user.GetLoginAtStr(),      /* FIELD_LOGIN_DT 		*/
+		user.GetLogoutAtStr(),     /* FIELD_LOGOUT_DT 		*/
+		user.GetLastAuthAtStr(),   /* FIELD_LASTAUTH_DT 	*/
+		user.GetLastFailedAtStr(), /* FIELD_LASTFAILED_DT 	*/
+		user.GetFailCountStr(),    /* FIELD_FAILCOUNT 		*/
+		user.GetMaxSessionAtStr(), /* FIELD_MAX_SESSION_DT */
+		user.GetTimeoutStr(),      /* FIELD_TIMEOUT_DT 	*/
+		fmtTime,                   /* FIELD_UPDATED_DT 	*/
+		user.GetDeletedAtStr(),    /* FIELD_DELETED_DT 	*/
 		strconv.FormatBool(user.IsActive),
 		strconv.FormatBool(user.IsLoggedIn),
-		user.GetGuid())				/* FIELD_GUID */
+		user.GetGuid()) /* FIELD_GUID */
 
 	return err
 }
