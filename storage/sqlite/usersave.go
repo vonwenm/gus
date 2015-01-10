@@ -15,6 +15,7 @@ import (
 	"github.com/cgentry/gus/storage"
 	"strconv"
 	"time"
+	"net/http"
 )
 
 var cmd_user_login string
@@ -98,31 +99,40 @@ func (t *SqliteConn) UserLogout(user *record.User) error {
 			     %s = ?
            WHERE %s = ? AND %s = ?`,
 			record.USER_STORE_NAME,
-			FIELD_ISLOGGEDIN, FIELD_LOGOUT_DT, FIELD_UPDATED_DT,
-			FIELD_GUID, FIELD_ISLOGGEDIN)
+			FIELD_ISLOGGEDIN,
+			FIELD_LOGOUT_DT,
+			FIELD_UPDATED_DT,
+			FIELD_GUID,
+			FIELD_ISLOGGEDIN)
 	}
 	now := time.Now()
 	fmtTime := now.Format(record.USER_TIME_STR)
 	result, err := t.db.Exec(cmd_user_logout,
-		strconv.FormatBool(false /* IS LOGGED IN */), fmtTime, fmtTime,
-		user.GetGuid(), strconv.FormatBool(true))
+		strconv.FormatBool(false 	/* FIELD_ISLOGGEDIN */),
+		fmtTime, 					// FIELD_LOGOUT_DT
+		fmtTime,					// FIELD_UPDATED_DT
+		user.GetGuid(), 			// FIELD_GUID
+		strconv.FormatBool(true))	// FIELD_ISLOGGEDIN
 	if err != nil {
-		return err
+		return storage.NewStorageFromError( err , http.StatusInternalServerError)
 	}
 	if numRows, err := result.RowsAffected(); err != nil {
-		return err
+		return storage.NewStorageFromError( err , http.StatusNotFound)
 	} else {
 		if numRows == 0 {
 			return storage.ErrUserNotLoggedIn
 		}
 	}
-	return nil
+	return storage.ErrStatusOk
 
 }
 
 // Save most of the user record. This is used to perform most updates, including
-// password. The only fields that will NOT be updated are Domain, Salt, and CreatedAt
+// password. The only fields that will NOT be updated are Domain, Salt, and CreatedAt.
 // UpdatedAt will always be set in this routine from the current time, not from the record.
+// Higher level routines can use this to completely update portions of a record. This is NOT
+// atomic as the read/update routines do not lock records. This shouldn't be a problem for
+// most cases.
 func (t *SqliteConn) UserUpdate(user *record.User) error {
 	if cmd_user_update == "" {
 		cmd_user_update = fmt.Sprintf(`UPDATE %s
@@ -159,16 +169,23 @@ func (t *SqliteConn) UserUpdate(user *record.User) error {
 	now := time.Now()
 	fmtTime := now.Format(record.USER_TIME_STR)
 	_, err := t.db.Exec(cmd_user_update,
-		user.GetFullName(), user.GetEmail(),
-		user.GetLoginName(), user.GetPassword(),
-		user.GetToken(), user.GetLoginAtStr(),
-		user.GetLogoutAtStr(), user.GetLastAuthAtStr(),
-		user.GetLastFailedAtStr(), user.GetFailCountStr(),
-		user.GetMaxSessionAtStr(), user.GetTimeoutStr(),
-		fmtTime, user.GetDeletedAtStr(),
+		user.GetFullName(), 		/* FIELD_FULLNAME		*/
+		user.GetEmail(),			/* FIELD_EMAIL	  		*/
+		user.GetLoginName(), 		/* FIELD_LOGINNAME 		*/
+		user.GetPassword(),			/* FIELD_PASSWORD 		*/
+		user.GetToken(), 			/* FIELD_TOKEN 			*/
+		user.GetLoginAtStr(),		/* FIELD_LOGIN_DT 		*/
+		user.GetLogoutAtStr(), 		/* FIELD_LOGOUT_DT 		*/
+		user.GetLastAuthAtStr(),	/* FIELD_LASTAUTH_DT 	*/
+		user.GetLastFailedAtStr(), 	/* FIELD_LASTFAILED_DT 	*/
+		user.GetFailCountStr(),		/* FIELD_FAILCOUNT 		*/
+		user.GetMaxSessionAtStr(), 	/* FIELD_MAX_SESSION_DT */
+		user.GetTimeoutStr(),		/* FIELD_TIMEOUT_DT 	*/
+		fmtTime, 					/* FIELD_UPDATED_DT 	*/
+		user.GetDeletedAtStr(),		/* FIELD_DELETED_DT 	*/
 		strconv.FormatBool(user.IsActive),
 		strconv.FormatBool(user.IsLoggedIn),
-		user.GetGuid())
+		user.GetGuid())				/* FIELD_GUID */
 
 	return err
 }

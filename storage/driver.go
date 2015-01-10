@@ -46,6 +46,7 @@ var ErrInvalidHeader = NewStorageError("Invalid header in request", http.StatusB
 var ErrInvalidChecksum = NewStorageError("Invalid Checksum", http.StatusBadRequest)
 var ErrInvalidBody = NewStorageError("Invalid body (mistmatch request?)", http.StatusBadRequest)
 var ErrEmptyFieldForLookup = NewStorageError("Lookup field is empty", http.StatusBadRequest)
+var ErrInvalidPasswordOrUser = NewStorageError("Invalid password or user id", http.StatusBadRequest)
 
 var ErrNoDriverFound = NewStorageError("No storage driver found", http.StatusInternalServerError)
 var ErrNoSupport = NewStorageError("Storage driver does not support function call", http.StatusNotImplemented)

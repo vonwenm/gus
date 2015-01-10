@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-// UserReturn will contain the USER's minimum data from a login/register operation.
+// UserReturn will contain the USER's minimum data from any operation operation.
 type UserReturn struct {
 	Guid  string // Permanent User ID for external linking (Within systems)
 	Token string // Send THIS to login with
@@ -13,12 +13,11 @@ type UserReturn struct {
 	LoginName string // The ID they use to login with
 	Email     string // Email address
 
-	LoginAt    string // THIS login time
-	LastAuthAt string // Last login time
+	LoginAt    time.Time // THIS login time
+	LastAuthAt time.Time // Last login time
+	TimeoutAt  time.Time // Required to authenticate by
 
-	TimeoutAt time.Time // Required to authenticate by
-
-	CreatedAt string // When the user was created
+	CreatedAt time.Time // When the user was created
 }
 
 /**
@@ -34,9 +33,11 @@ func NewReturnFromUser(user *User) UserReturn {
 	}
 	rtn.Token = user.Token
 
-	rtn.LoginAt = user.LoginAt.Format(time.RFC3339)
-	rtn.LastAuthAt = user.LoginAt.Format(time.RFC3339)
-	rtn.CreatedAt = user.CreatedAt.Format(time.RFC3339)
+	rtn.LoginAt = user.LoginAt
+	rtn.LastAuthAt = user.LoginAt
+	rtn.CreatedAt = user.CreatedAt
+	rtn.TimeoutAt = user.TimeoutAt
+
 	rtn.FullName = user.GetFullName()
 	rtn.Email = user.GetEmail()
 	rtn.LoginName = user.GetLoginName()

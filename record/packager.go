@@ -104,3 +104,7 @@ func (p *Package) GetSignature() string {
 func (p *Package) SetSecret(NewSecret []byte) {
 	p.secret = NewSecret
 }
+
+func (p *Package) ClearSecret(){
+	p.secret = nil
+}
