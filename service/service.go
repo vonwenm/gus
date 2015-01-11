@@ -9,6 +9,7 @@ import (
 	"github.com/cgentry/gus/record/response"
 	"github.com/cgentry/gus/storage"
 	"net/http"
+	"strings"
 )
 
 type Options map[string]bool
@@ -183,10 +184,14 @@ func ServiceLogout(store *storage.Store, caller *record.User, requestPackage *re
 // in the call which will stop updates from occuring.
 func ServiceUpdate(store *storage.Store, caller *record.User, requestPackage *record.Package, options Options) *record.Package {
 	var err error
-	var dirtyRecord bool = false
+	var updatedFields []string
 
 	update := request.NewUpdate()
 	responseHead := response.NewHead()
+
+	if len(options)==0 {
+		return serviceReturnResponse(caller, &responseHead, "", http.StatusInternalServerError, "No updates in options")
+	}
 
 	requestHead, OK := requestPackage.Head.(request.Head)
 	if !OK {
@@ -219,39 +224,42 @@ func ServiceUpdate(store *storage.Store, caller *record.User, requestPackage *re
 		if err = user.SetLoginName(update.Login); err != nil {
 			return serviceReturnResponse(caller, &responseHead, "", http.StatusBadRequest, err.Error())
 		}
-		dirtyRecord = true
+		updatedFields = append(updatedFields, "Login")
 	}
 	if update.Name != "" && ( options[PERMIT_ALL] || options[PERMIT_NAME] ){
 		if err = user.SetName(update.Name); err != nil {
 			return serviceReturnResponse(caller, &responseHead, "", http.StatusBadRequest, err.Error())
 		}
-		dirtyRecord = true
+		updatedFields = append(updatedFields, "Name")
 	}
 	if update.Email != "" && ( options[PERMIT_ALL] || options[PERMIT_EMAIL] ){
 		if err = user.SetEmail(update.Email); err != nil {
 			return serviceReturnResponse(caller, &responseHead, "", http.StatusBadRequest, err.Error())
 		}
-		dirtyRecord = true
+		updatedFields = append(updatedFields, "Email")
 	}
 	if update.OldPassword != "" && update.NewPassword != "" && ( options[PERMIT_ALL] || options[PERMIT_PASSWORD] ){
-		if status := user.ChangePassword(update.OldPassword, update.Token, update.NewPassword); status != record.USER_OK {
+		if status := user.ChangePassword(update.Token , update.OldPassword, update.NewPassword); status != record.USER_OK {
 			return serviceReturnStorageError(caller, &responseHead, "", storage.ErrInvalidPasswordOrUser)
 		}
-		dirtyRecord = true
+		updatedFields = append(updatedFields, "Password")
 	}
-
-	if !dirtyRecord {
+	if len(updatedFields) == 0 {
 		return serviceReturnResponse(caller, &responseHead, "", http.StatusBadRequest, "No fields included for update")
 	}
 	if serr := store.UserUpdate(user); serr != storage.ErrStatusOk {
 		return serviceReturnStorageError(caller, &responseHead, "", serr)
+	}
+	user, err = store.FetchUserByToken(update.Token)
+	if err != nil {
+		return serviceReturnStorageError(caller, &responseHead, "", err)
 	}
 
 	returnUserJson, err := json.Marshal(record.NewReturnFromUser(user))
 	if err != nil {
 		return serviceReturnResponse(caller, &responseHead, "", http.StatusInternalServerError, err.Error())
 	}
-	return serviceReturnStorageError(caller, &responseHead, string(returnUserJson), storage.ErrStatusOk)
+	return serviceReturnResponse(caller, &responseHead, string(returnUserJson), storage.ErrStatusOk.Code(),"Fields updated: " + strings.Join(updatedFields,`, `))
 
 }
 

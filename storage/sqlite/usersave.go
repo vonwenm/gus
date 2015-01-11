@@ -186,8 +186,11 @@ func (t *SqliteConn) UserUpdate(user *record.User) error {
 		strconv.FormatBool(user.IsActive),
 		strconv.FormatBool(user.IsLoggedIn),
 		user.GetGuid()) /* FIELD_GUID */
+	if err != nil {
+		return storage.NewStorageFromError(err, http.StatusInternalServerError)
+	}
 
-	return err
+	return storage.ErrStatusOk
 }
 
 

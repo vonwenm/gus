@@ -25,11 +25,13 @@ func (r *Update) Check() error {
 	r.NewPassword = strings.TrimSpace(r.NewPassword)
 	r.OldPassword = strings.TrimSpace(r.OldPassword)
 
-	if r.NewPassword != "" {
-		return errors.New("Password cannot be blank")
+	if (r.NewPassword == "" && r.OldPassword != "") || (r.NewPassword != "" && r.OldPassword == "") {
+		return errors.New("New and old password must be set")
 	}
-	if len(r.NewPassword) < 6 {
-		return errors.New("Password length is too short")
+	if r.NewPassword != "" && r.OldPassword != "" {
+		if len(r.NewPassword) < 6 {
+			return errors.New("Password length is too short")
+		}
 	}
 
 	return nil

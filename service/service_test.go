@@ -226,4 +226,129 @@ func TestSimpleRegister(t *testing.T) {
 		So(pack.Body, ShouldBeBlank)
 
 	})
+	Convey(`Test Updating user` , t , func(){
+
+		reqLogin := request.NewLogin()
+		reqLogin.Login = "*Login"
+		reqLogin.Password = "12345678abcdefg"
+
+		originalUserRecord,err := store.FetchUserByLogin(`*Login`)
+		So(err, ShouldBeNil)
+
+		h := request.NewHead()
+		h.Domain = `Test`
+		h.Id = `ID`
+
+		p := record.NewPackage()
+		p.SetSecret([]byte(`secret`))
+		p.SetHead(h)
+		p.SetBody(reqLogin)
+
+		So(p.GetSignature(), ShouldNotEqual, "")
+
+		pack := ServiceLogin(store, caller, p)
+		fmt.Println(pack)
+		rtnHead := pack.Head.(*response.Head)
+		So(rtnHead.Message, ShouldBeBlank)
+		So(rtnHead.Code, ShouldEqual, 200)
+		userRtn := record.UserReturn{}
+		err = json.Unmarshal([]byte(pack.Body), &userRtn)
+		So(err, ShouldBeNil)
+		token := userRtn.Token
+
+		// NOW UPDATE USING TOKEN
+		reqUpdate := request.NewUpdate()
+		reqUpdate.Login = "*LoginNew"
+		reqUpdate.Name  = "*Name New"
+		reqUpdate.Email = "*Email New"
+		reqUpdate.Token = token
+
+		p.SetBody(reqUpdate)
+		options := NewOptions()
+		options.Set(PERMIT_LOGIN, true)
+		pack = ServiceUpdate(store,caller,p,options)
+
+		rtnHead = pack.Head.(*response.Head)
+		So(rtnHead.Message, ShouldEqual, "Fields updated: Login")
+		So(rtnHead.Code, ShouldEqual, 200)
+		userRtn2 := record.UserReturn{}
+		err = json.Unmarshal([]byte(pack.Body), &userRtn2)
+		So(err, ShouldBeNil)
+		So( userRtn2.LoginName, ShouldEqual, reqUpdate.Login)
+		So( userRtn2.FullName , ShouldEqual, userRtn.FullName )
+		So( userRtn2.Email , ShouldEqual, userRtn.Email )
+
+		//
+		// Attempt number 3: email only
+		options = NewOptions()
+		options.Set(PERMIT_EMAIL, true)
+		reqUpdate.Login = "*Login Old"
+		p.SetBody(reqUpdate)
+		pack = ServiceUpdate(store,caller,p,options)
+
+		rtnHead = pack.Head.(*response.Head)
+		So(rtnHead.Message, ShouldEqual, "Fields updated: Email")
+		So(rtnHead.Code, ShouldEqual, 200)
+		userRtn3 := record.UserReturn{}
+		err = json.Unmarshal([]byte(pack.Body), &userRtn3)
+		So(err, ShouldBeNil)
+		fmt.Println("\n******* RTN3")
+		fmt.Println( pack)
+		So( userRtn3.LoginName, ShouldEqual, userRtn2.LoginName)
+		So( userRtn3.FullName , ShouldEqual, userRtn2.FullName )
+		So( userRtn3.Email , ShouldEqual, reqUpdate.Email )
+
+		//
+		// Attempt number 4: ALL of them (except password)
+		options = NewOptions()
+		options.Set(PERMIT_ALL, true)
+		reqUpdate.Login = "*Login all"
+		reqUpdate.Email = "email@all.com"
+		reqUpdate.Name = "*Name all"
+
+		p.SetBody(reqUpdate)
+		pack = ServiceUpdate(store,caller,p,options)
+
+		rtnHead = pack.Head.(*response.Head)
+		So(rtnHead.Message, ShouldEqual, "Fields updated: Login, Name, Email")
+		So(rtnHead.Code, ShouldEqual, 200)
+		userRtn4 := record.UserReturn{}
+		err = json.Unmarshal([]byte(pack.Body), &userRtn4)
+		So(err, ShouldBeNil)
+		fmt.Println("\n******* RTN4")
+		fmt.Println( pack)
+		So( userRtn4.LoginName, ShouldEqual, reqUpdate.Login)
+		So( userRtn4.FullName , ShouldEqual, reqUpdate.Name )
+		So( userRtn4.Email , ShouldEqual, reqUpdate.Email )
+
+
+		//
+		// Attempt number 5: Password
+		options = NewOptions()
+		options.Set(PERMIT_ALL, true)
+		reqUpdate.Login = "*Login all"
+		reqUpdate.Email = "email@all.com"
+		reqUpdate.Name = "*Name all"
+		reqUpdate.OldPassword = `12345678abcdefg`
+		reqUpdate.NewPassword = `abcdefg987654321`
+
+		p.SetBody(reqUpdate)
+		pack = ServiceUpdate(store,caller,p,options)
+
+		rtnHead = pack.Head.(*response.Head)
+		So(rtnHead.Message, ShouldEqual, "Fields updated: Password")
+		So(rtnHead.Code, ShouldEqual, 200)
+		userRtn5 := record.UserReturn{}
+		err = json.Unmarshal([]byte(pack.Body), &userRtn5)
+		So(err, ShouldBeNil)
+		fmt.Println("\n******* RTN5")
+		fmt.Println( pack)
+		So( userRtn5.LoginName, ShouldEqual, userRtn4.LoginName)
+		So( userRtn5.FullName , ShouldEqual, userRtn4.FullName)
+		So( userRtn5.Email , ShouldEqual, userRtn4.Email )
+
+		lastUserRecord,err := store.FetchUserByLogin(`*Login all`)
+		So(err, ShouldBeNil)
+		So(lastUserRecord.Password, ShouldNotEqual, originalUserRecord.Password )
+	})
 }

@@ -37,7 +37,7 @@ type UserStatusCode int
 type UserInterface interface {
 	Login(string) (UserStatusCode, error)
 	Logout()
-	ChangePassword(oldPassword, token, newPassword string) UserStatusCode
+	ChangePassword(token, oldPassword, newPassword string) UserStatusCode
 	Authenticate(token string) UserStatusCode
 }
 
@@ -256,10 +256,13 @@ func (user *User) CheckExpirationDates() UserStatusCode {
 // Authenticate checks the user's token to see if it is valid. This is a post-login process
 // The user's record should be saved after this operation
 func (user *User) Authenticate(token string) UserStatusCode {
+	fmt.Println( user.IsLoggedIn )
 	if token != "" && user.IsLoggedIn {
 		if checkToken, err := user.GetTokenWithExpiration(); err == USER_OK && token == checkToken {
+			fmt.Println("Authenticated")
 			return USER_OK
-		}
+		}else{ fmt.Println( err );}
+
 	}
 	return USER_INVALID
 }
@@ -305,7 +308,7 @@ func (user *User) Logout() {
 }
 
 // ChangePassword to the new password. The user must be logged in for this
-func (user *User) ChangePassword(oldPassword, token, newPassword string) UserStatusCode {
+func (user *User) ChangePassword(token , oldPassword, newPassword string) UserStatusCode {
 	if user.Authenticate(token) == USER_OK {
 		t := encryption.GetDriver()
 		if t.EncryptPassword(oldPassword, user.Salt) == user.Password {
@@ -315,6 +318,8 @@ func (user *User) ChangePassword(oldPassword, token, newPassword string) UserSta
 			user.Password = t.EncryptPassword(newPassword, user.Salt)
 			return USER_OK
 		}
+	}else{
+		fmt.Println("\n******  Authenticate failed")
 	}
 	return USER_INVALID
 }
