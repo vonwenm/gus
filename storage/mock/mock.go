@@ -186,3 +186,7 @@ func (t *MockConn) Reset() {
 	t.userReturnForType = make(map[string]*record.User)
 	t.callList = make(map[string]int)
 }
+
+func ( t * MockConn)Release() error {
+	return nil
+}

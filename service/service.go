@@ -11,6 +11,22 @@ import (
 	"net/http"
 )
 
+type Options map[string]bool
+
+func NewOptions() Options {
+	return make(map[string]bool)
+}
+func ( o Options) Set(name string, value bool ){
+	o[name] = value
+}
+const (
+	PERMIT_ALL = "permit_all"
+	PERMIT_LOGIN = "permit_login"
+	PERMIT_PASSWORD = "permit_password"
+	PERMIT_NAME = "permit_name"
+	PERMIT_EMAIL = "permit_email"
+)
+
 // ServiceRegister will register a new user into the main store. This will package up the response into a common
 // response package after checking the integrity of the request.
 func ServiceRegister(store *storage.Store, caller *record.User, requestPackage *record.Package) *record.Package {
@@ -52,7 +68,9 @@ func ServiceRegister(store *storage.Store, caller *record.User, requestPackage *
 	}
 
 	serr := store.RegisterUser(newUser)
+	store.Release()
 	if serr != storage.ErrStatusOk {
+
 		return serviceReturnStorageError(caller, &responseHead, "", serr)
 	}
 
@@ -88,7 +106,9 @@ func ServiceLogin(store *storage.Store, caller *record.User, requestPackage *rec
 
 	// Find the user - we have to use the LOGIN name for this
 	user, err := store.FetchUserByLogin(login.Login)
+	defer store.Release()
 	if err != nil {
+
 		return serviceReturnStorageError(caller, &responseHead, "", err)
 	}
 	// Process the login request. This checks the password that was passed
@@ -116,6 +136,8 @@ func ServiceLogin(store *storage.Store, caller *record.User, requestPackage *rec
 
 }
 
+// ServiceLogout will logout the user that is currently logged in. Only the token is required for this operation.
+// If the user is not logged in then an error will be returned.
 func ServiceLogout(store *storage.Store, caller *record.User, requestPackage *record.Package) *record.Package {
 	var err error
 
@@ -138,6 +160,7 @@ func ServiceLogout(store *storage.Store, caller *record.User, requestPackage *re
 
 	// Find the user - we have to use the LOGIN name for this
 	user, err := store.FetchUserByToken(logout.Token)
+	defer store.Release()
 	if err != nil {
 		return serviceReturnStorageError(caller, &responseHead, "", err)
 	}
@@ -149,9 +172,16 @@ func ServiceLogout(store *storage.Store, caller *record.User, requestPackage *re
 	return serviceReturnStorageError(caller, &responseHead, "", storage.ErrStatusOk)
 }
 
-// ServiceUpdate will update any field for a user, given a token (user must be logged in)
-// This performs general update services for fields
-func ServiceUpdate(store *storage.Store, caller *record.User, requestPackage *record.Package) *record.Package {
+// ServiceUpdate is the catch-all for updating the record. The fields that can be updated through THIS call
+// are: LoginName, FullName, Email and Password. This limited set allows most front-end applications to
+// alter key fields that the user will want to affect. It is only accessable by the users' token, so they
+// must be logged in currently.
+//
+// If a field is blank, the field will not be updated. This allows the front-end to control what is being altered.
+//
+// If a front-end wants to create multiple interfaces (change password only, for example) it can include options
+// in the call which will stop updates from occuring.
+func ServiceUpdate(store *storage.Store, caller *record.User, requestPackage *record.Package, options Options) *record.Package {
 	var err error
 	var dirtyRecord bool = false
 
@@ -180,29 +210,30 @@ func ServiceUpdate(store *storage.Store, caller *record.User, requestPackage *re
 
 	// Find the user via Token
 	user, err := store.FetchUserByToken(update.Token)
+	defer store.Release()
 	if err != nil {
 		return serviceReturnStorageError(caller, &responseHead, "", err)
 	}
 
-	if update.Login != "" {
+	if update.Login != "" && ( options[PERMIT_ALL] || options[PERMIT_LOGIN] ){
 		if err = user.SetLoginName(update.Login); err != nil {
 			return serviceReturnResponse(caller, &responseHead, "", http.StatusBadRequest, err.Error())
 		}
 		dirtyRecord = true
 	}
-	if update.Name != "" {
+	if update.Name != "" && ( options[PERMIT_ALL] || options[PERMIT_NAME] ){
 		if err = user.SetName(update.Name); err != nil {
 			return serviceReturnResponse(caller, &responseHead, "", http.StatusBadRequest, err.Error())
 		}
 		dirtyRecord = true
 	}
-	if update.Email != "" {
+	if update.Email != "" && ( options[PERMIT_ALL] || options[PERMIT_EMAIL] ){
 		if err = user.SetEmail(update.Email); err != nil {
 			return serviceReturnResponse(caller, &responseHead, "", http.StatusBadRequest, err.Error())
 		}
 		dirtyRecord = true
 	}
-	if update.OldPassword != "" && update.NewPassword != "" {
+	if update.OldPassword != "" && update.NewPassword != "" && ( options[PERMIT_ALL] || options[PERMIT_PASSWORD] ){
 		if status := user.ChangePassword(update.OldPassword, update.Token, update.NewPassword); status != record.USER_OK {
 			return serviceReturnStorageError(caller, &responseHead, "", storage.ErrInvalidPasswordOrUser)
 		}

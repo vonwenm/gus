@@ -172,6 +172,15 @@ func (s *Store) Reset() {
 	return
 }
 
+// Reset any errors or intermediate conditions
+func (s *Store) Release() error {
+	s.lastError = nil
+	if release, found := s.connection.(Releaser); found {
+		s.lastError = release.Release()
+	}
+	return s.lastError
+}
+
 // Close the connection to the storage mechanism. If there is no close routine
 // ignore the call
 func (s *Store) Close() error {

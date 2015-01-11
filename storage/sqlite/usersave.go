@@ -127,7 +127,7 @@ func (t *SqliteConn) UserLogout(user *record.User) error {
 
 }
 
-// Save most of the user record. This is used to perform most updates, including
+// Save most of the user record. This is used to perform general updates, including
 // password. The only fields that will NOT be updated are Domain, Salt, and CreatedAt.
 // UpdatedAt will always be set in this routine from the current time, not from the record.
 // Higher level routines can use this to completely update portions of a record. This is NOT
@@ -188,4 +188,11 @@ func (t *SqliteConn) UserUpdate(user *record.User) error {
 		user.GetGuid()) /* FIELD_GUID */
 
 	return err
+}
+
+
+// Release is used to release any locks/resources that may have been created. In SQLITE we
+// aren't using any locks, so we don't have to do anything.
+func (t *SqliteConn) Release() error {
+	return nil
 }

@@ -41,3 +41,14 @@ type Closer interface {
 type Reseter interface {
 	Reset()
 }
+
+//Optional Release interface. This will release any locks/resources that a driver may have set
+//For example, the MySQL will do a SELECT...FOR UPDATE for all of the FetchXXX calls. The
+//release will cause an explicit commit. This, in the code, will be called by a 'defer' call after
+//any fetch/insert operation. For other drivers, it can be ignored or perform any other operation
+//required.
+// Note that SQLITE doesn't do anything at this stage as it isn't really considered a robust, fully
+// hardened storage mechanism. Document-style interfaces will probably not use it either.
+type Releaser interface {
+	Release() error
+}
