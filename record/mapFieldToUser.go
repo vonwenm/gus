@@ -59,6 +59,8 @@ func (user *User) MapFieldToUser(key, value string) (found bool, rtn error) {
 		rtn = user.SetLogoutAt(StrToTime(value))
 	case "lastfailedat":
 		rtn = user.SetLastFailedAt(StrToTime(value))
+	case "lastauthat":
+		rtn = user.SetLastAuthAt(StrToTime(value))
 	case "failcount":
 		rtn = user.SetFailCount(StrToInt(value))
 
@@ -67,8 +69,6 @@ func (user *User) MapFieldToUser(key, value string) (found bool, rtn error) {
 	case "timeoutat":
 		rtn = user.SetTimeoutAt(StrToTime(value))
 
-	case "createdat":
-		rtn = user.SetCreatedAt(StrToTime(value))
 	case "updatedat":
 		rtn = user.SetUpdatedAt(StrToTime(value))
 	case "deletedat":

@@ -1,58 +1,57 @@
 package plaintext
 
 import (
-	"testing"
-	"github.com/cgentry/gus/record"
 	"github.com/cgentry/gus/encryption"
-
+	"github.com/cgentry/gus/record"
+	"testing"
 )
 
-func TestGenerate( t *testing.T ){
+func TestGenerate(t *testing.T) {
 
 	user := record.NewTestUser()
-	pwd := encryption.GetDriver().EncryptPassword(  "hello" , user.GetSalt() )
-	if pwd != "hello;" + user.GetSalt() {
+	pwd := encryption.GetDriver().EncryptPassword("hello", user.Salt)
+	if pwd != "hello;"+user.Salt {
 		t.Errorf("Passwords don't match encrypted")
 	}
 }
 
-func TestRepeatable( t *testing.T ){
+func TestRepeatable(t *testing.T) {
 	user := record.NewTestUser()
-	pwd  := encryption.GetDriver().EncryptPassword( "123456" , user.GetSalt() )
-	pwd2 := encryption.GetDriver().EncryptPassword( "123456" , user.GetSalt() )
-	if( pwd != pwd2 ){
-		t.Errorf( "Passwords didn't match: '%s' and '%s'" , pwd , pwd2 )
+	pwd := encryption.GetDriver().EncryptPassword("123456", user.Salt)
+	pwd2 := encryption.GetDriver().EncryptPassword("123456", user.Salt)
+	if pwd != pwd2 {
+		t.Errorf("Passwords didn't match: '%s' and '%s'", pwd, pwd2)
 	}
 
 }
 
-func TestIsLongEnough( t *testing.T ){
+func TestIsLongEnough(t *testing.T) {
 	user := record.NewTestUser()
-	pwd := encryption.GetDriver().EncryptPassword(  "hello" , user.GetSalt() )
-	pwdLen := len( pwd )
-	sbLen := len ( "hello;" + user.GetSalt() )
+	pwd := encryption.GetDriver().EncryptPassword("hello", user.Salt)
+	pwdLen := len(pwd)
+	sbLen := len("hello;" + user.Salt)
 	if pwdLen != sbLen {
-		t.Errorf("PWD isn't long enough %d" , pwdLen )
+		t.Errorf("PWD isn't long enough %d", pwdLen)
 	}
 }
 
-func TestSimilarUserDifferntPwd( t *testing.T ){
+func TestSimilarUserDifferntPwd(t *testing.T) {
 	user := record.NewTestUser()
-	pwd  := encryption.GetDriver().EncryptPassword( "123456" , user.GetSalt() )
+	pwd := encryption.GetDriver().EncryptPassword("123456", user.Salt)
 	user2 := record.NewTestUser()
-	pwd2 := encryption.GetDriver().EncryptPassword( "123456" , user2.GetSalt() )
-	if( pwd == pwd2 ){
-		t.Errorf( "Passwords for different users should not match: '%s' and '%s'" , pwd , pwd2 )
+	pwd2 := encryption.GetDriver().EncryptPassword("123456", user2.Salt)
+	if pwd == pwd2 {
+		t.Errorf("Passwords for different users should not match: '%s' and '%s'", pwd, pwd2)
 	}
 }
 
-func TestAfterChangingSalt( t *testing.T ){
+func TestAfterChangingSalt(t *testing.T) {
 	user := record.NewTestUser()
-	pwd  := encryption.GetDriver().EncryptPassword( "123456" , user.GetSalt() )
-	encryption.GetDriver().SetInternalSalt( "hello - this should screw up password" )
-	pwd2 := encryption.GetDriver().EncryptPassword( "123456" , user.GetSalt() )
+	pwd := encryption.GetDriver().EncryptPassword("123456", user.Salt)
+	encryption.GetDriver().SetInternalSalt("hello - this should screw up password")
+	pwd2 := encryption.GetDriver().EncryptPassword("123456", user.Salt)
 
-	if( pwd == pwd2 ){
-		t.Errorf( "Passwords with different salts should not match: '%s' and '%s'" , pwd , pwd2 )
+	if pwd == pwd2 {
+		t.Errorf("Passwords with different salts should not match: '%s' and '%s'", pwd, pwd2)
 	}
 }

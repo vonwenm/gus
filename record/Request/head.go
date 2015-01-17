@@ -1,7 +1,7 @@
 package request
 
 import (
-	"errors"
+	"github.com/cgentry/gus/ecode"
 	"time"
 )
 
@@ -36,13 +36,13 @@ func NewHead() Head {
 func (h Head) Check() error {
 
 	if h.Domain == "" {
-		return errors.New("Head: No domain")
+		return ecode.ErrHeadNoDomain
 	}
 	if h.Id == "" {
-		return errors.New("Head: No Id")
+		return ecode.ErrHeadNoId
 	}
 	if h.Timestamp.IsZero() {
-		return errors.New("Head: No timestamp set")
+		return ecode.ErrHeadNoTimestamp
 	}
 
 	// Note: stale time is always 2 minutes old. You can check for earlier times...
@@ -50,11 +50,11 @@ func (h Head) Check() error {
 	if diff != 0 {
 		if diff > 0 {
 			if diff > TIMESTAMP_EXPIRATION {
-				return errors.New("Head: Request in the future")
+				return ecode.ErrHeadFuture
 			}
 		} else {
 			if diff < -1*TIMESTAMP_EXPIRATION {
-				return errors.New("Head: Request expired")
+				return ecode.ErrHeadExpired
 			}
 		}
 	}

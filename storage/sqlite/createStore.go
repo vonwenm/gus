@@ -5,6 +5,8 @@ package sqlite
 
 import (
 	"database/sql"
+	. "github.com/cgentry/gus/ecode"
+	"net/http"
 )
 
 // CreateStore is a non-destructive storage creation mechanism. It can be called on the command line
@@ -56,7 +58,7 @@ func createStore(db *sql.DB) error {
 
 	for _, cmd := range sql {
 		if _, err := db.Exec(cmd); err != nil {
-			return err
+			return NewGeneralFromError(err, http.StatusInternalServerError)
 		}
 	}
 

@@ -44,7 +44,7 @@ func (p *Package) IsPackageComplete() bool {
 }
 
 func (p *Package) IsBodySet() bool {
-	return p.Body != ""
+	return p.Body != ``
 }
 
 func (p *Package) IsHeadSet() bool {
@@ -60,6 +60,7 @@ func (p *Package) SetHead(h HeaderInterface) *Package {
 func (p *Package) SetBody(body interface{}) (*Package, error) {
 	bodyJson, err := json.Marshal(body)
 	if err != nil {
+		p.Body = ``
 		return p, err
 	}
 	p.Body = string(bodyJson)
@@ -69,15 +70,19 @@ func (p *Package) SetBody(body interface{}) (*Package, error) {
 
 func (p *Package) SetBodyString(body string) *Package {
 	p.Body = body
+	p.setSignature()
 	return p
 }
 
 func (p *Package) setSignature() {
-	p.Head.SetSignature(base64.StdEncoding.EncodeToString(p.computeSignature()))
+	if p.IsHeadSet() {
+		sig := p.computeSignature()
+		p.Head.SetSignature(base64.StdEncoding.EncodeToString(sig))
+	}
 }
 
 func (p *Package) computeSignature() []byte {
-	if nil != p.secret && p.IsPackageComplete() {
+	if p.IsPackageComplete() && nil != p.secret {
 		mac := hmac.New(sha256.New, p.secret)
 		mac.Write([]byte(p.Body))
 		return mac.Sum(nil)

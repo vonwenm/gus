@@ -10,19 +10,21 @@ import (
 func httpRegister(c *gofig.Configuration, w http.ResponseWriter, r *http.Request) {
 
 	mock.RegisterMockStore()
-	store, _ := storage.Open("mock", "register")
+	ctrl := NewServiceControl()
+	ctrl.DataStore, _ = storage.Open("mock", ":memory:")
+
 	requestPackage, requestHead, err := httpGetBody(r)
 	if err != nil {
 		httpErrorWrite(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	caller, err := httpFindSystemUser(store, requestHead.Id)
+	caller, err := httpFindSystemUser(ctrl.DataStore, requestHead.Id)
 	if err != nil {
 		httpErrorWrite(w, http.StatusUnauthorized, "")
 		return
 	}
 
-	responsePackage := ServiceRegister(store, caller, requestPackage)
+	responsePackage := ServiceRegister(ctrl, caller, requestPackage)
 	httpResponseWrite(w, responsePackage)
 
 }

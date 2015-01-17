@@ -7,6 +7,8 @@ import (
 	"database/sql"
 	"github.com/cgentry/gus/storage"
 	_ "github.com/mattn/go-sqlite3" // Register sqlite3 with the main system
+	. "github.com/cgentry/gus/ecode"
+	"net/http"
 )
 
 const STORAGE_IDENTITY = "sqlite"
@@ -34,7 +36,7 @@ func (t SqliteDriver) Open(dsnConnect string) (storage.Conn, error) {
 		dsn: dsnConnect,
 	}
 	store.db, err = sql.Open(DRIVER_IDENTITY, dsnConnect)
-	return store, err
+	return store, NewGeneralFromError(err, http.StatusInternalServerError)
 }
 
 func (t *SqliteConn) Close() error {
@@ -43,5 +45,5 @@ func (t *SqliteConn) Close() error {
 	}
 	err := t.db.Close()
 	t.db = nil
-	return err
+	return NewGeneralFromError(err, http.StatusInternalServerError)
 }

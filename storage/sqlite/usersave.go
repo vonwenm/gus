@@ -11,8 +11,8 @@ package sqlite
 
 import (
 	"fmt"
+	. "github.com/cgentry/gus/ecode"
 	"github.com/cgentry/gus/record"
-	"github.com/cgentry/gus/storage"
 	"net/http"
 	"strconv"
 	"time"
@@ -28,12 +28,17 @@ var cmd_user_update string
 func (t *SqliteConn) UserLogin(user *record.User) error {
 
 	if !user.IsActive {
-		return storage.ErrUserNotActive
+		return ErrUserNotActive
 	}
 	if cmd_user_login == "" {
 		cmd_user_login = fmt.Sprintf(`UPDATE %s
-			 SET %s = ?,  %s = ?,
-			     %s = ?,  %s = ?,
+			 SET %s = ?,
+			     %s = ?,
+			     %s = ?,
+			     %s = ?,
+			     %s = ?,
+			     %s = ?,
+			     %s = ?,
 			     %s = ?
            WHERE %s = ? AND %s = ?`,
 			record.USER_STORE_NAME,
@@ -42,31 +47,43 @@ func (t *SqliteConn) UserLogin(user *record.User) error {
 			FIELD_LASTAUTH_DT,
 			FIELD_LOGIN_DT,
 			FIELD_UPDATED_DT,
+			FIELD_MAX_SESSION_DT,
+			FIELD_TIMEOUT_DT,
+			FIELD_FAILCOUNT,
+
 			FIELD_GUID,
 			FIELD_ISACTIVE)
 
 	}
 	now := time.Now()
+
 	fmtTime := now.Format(record.USER_TIME_STR)
 	result, err := t.db.Exec(cmd_user_login,
-		user.GetToken(),
+		user.Token,
 		strconv.FormatBool(true /* IS LOGGED IN */),
-		fmtTime,
-		fmtTime,
-		fmtTime,
-		user.GetGuid(),
+		fmtTime,					// LastAuthAt
+		fmtTime,					// LoginAt
+		fmtTime,					// UpdatedAt
+		user.GetMaxSessionAtStr(),
+		user.GetTimeoutStr(),
+		0,							// FailCount
+		user.Guid,
 		strconv.FormatBool(true))
 	if err != nil {
-		return err
+		return NewGeneralFromError(err, http.StatusInternalServerError)
 	}
 	if numRows, err := result.RowsAffected(); err != nil {
-		return err
+		return NewGeneralFromError(err,http.StatusInternalServerError)
 	} else if numRows == 0 {
-		return storage.ErrUserLoggedIn
+		return ErrUserLoggedIn
 
 	}
-
-	return storage.ErrStatusOk
+	user.SetIsLoggedIn(true)
+	user.SetLastAuthAt(now)
+	user.SetLoginAt(now)
+	user.SetUpdatedAt(now)
+	user.SetFailCount(0)
+	return nil
 
 }
 
@@ -75,19 +92,35 @@ func (t *SqliteConn) UserLogin(user *record.User) error {
 func (t *SqliteConn) UserAuthenticated(user *record.User) error {
 	if cmd_user_authenticated == "" {
 		cmd_user_authenticated = fmt.Sprintf(`UPDATE %s
-			 SET %s = ?,  %s = ?
-           WHERE %s = ? AND %s = ? AND %s = ?`,
+			 SET %s = ?,
+			 	 %s = ?
+           WHERE %s = ?
+             AND %s = ?
+             AND %s = ?`,
 			record.USER_STORE_NAME,
-			FIELD_LASTAUTH_DT, FIELD_UPDATED_DT,
-			FIELD_GUID, FIELD_ISLOGGEDIN, FIELD_ISACTIVE)
+			FIELD_LASTAUTH_DT,
+			FIELD_UPDATED_DT,
+
+			FIELD_GUID,
+			FIELD_ISLOGGEDIN,
+			FIELD_ISACTIVE)
 
 	}
 	now := time.Now()
+
 	fmtTime := now.Format(record.USER_TIME_STR)
 	_, err := t.db.Exec(cmd_user_authenticated,
-		fmtTime, fmtTime,
-		user.GetGuid(), strconv.FormatBool(true), strconv.FormatBool(true))
-	return err
+		fmtTime,
+		fmtTime,
+		user.Guid,
+		strconv.FormatBool(true),
+		strconv.FormatBool(true))
+	if err != nil {
+		return NewGeneralFromError(err,http.StatusInternalServerError)
+	}
+	user.SetLastAuthAt(now)
+	user.SetUpdatedAt(now)
+	return nil
 }
 
 // The user has logged out; this will update the token, status and dates
@@ -95,35 +128,42 @@ func (t *SqliteConn) UserAuthenticated(user *record.User) error {
 func (t *SqliteConn) UserLogout(user *record.User) error {
 	if cmd_user_logout == "" {
 		cmd_user_logout = fmt.Sprintf(`UPDATE %s
-			 SET %s = ?,  %s = ?,
+			 SET %s = ?,
+			  	 %s = ?,
 			     %s = ?
-           WHERE %s = ? AND %s = ?`,
+           WHERE %s = ?
+             AND %s = ?`,
 			record.USER_STORE_NAME,
 			FIELD_ISLOGGEDIN,
 			FIELD_LOGOUT_DT,
 			FIELD_UPDATED_DT,
+
 			FIELD_GUID,
 			FIELD_ISLOGGEDIN)
 	}
 	now := time.Now()
+
 	fmtTime := now.Format(record.USER_TIME_STR)
 	result, err := t.db.Exec(cmd_user_logout,
-		strconv.FormatBool(false /* FIELD_ISLOGGEDIN */),
-		fmtTime,                  // FIELD_LOGOUT_DT
-		fmtTime,                  // FIELD_UPDATED_DT
-		user.GetGuid(),           // FIELD_GUID
-		strconv.FormatBool(true)) // FIELD_ISLOGGEDIN
+		strconv.FormatBool(false), // FIELD_ISLOGGEDIN
+		fmtTime,                   // FIELD_LOGOUT_DT
+		fmtTime,                   // FIELD_UPDATED_DT
+		user.Guid,                 // FIELD_GUID
+		strconv.FormatBool(true))  // FIELD_ISLOGGEDIN
 	if err != nil {
-		return storage.NewStorageFromError(err, http.StatusInternalServerError)
+		return NewGeneralFromError(err, http.StatusInternalServerError)
 	}
 	if numRows, err := result.RowsAffected(); err != nil {
-		return storage.NewStorageFromError(err, http.StatusNotFound)
+		return NewGeneralFromError(err, http.StatusNotFound)
 	} else {
 		if numRows == 0 {
-			return storage.ErrUserNotLoggedIn
+			return ErrUserNotLoggedIn
 		}
 	}
-	return storage.ErrStatusOk
+	user.SetIsLoggedIn(false)
+	user.SetLogoutAt(now)
+	user.SetUpdatedAt(now)
+	return nil
 
 }
 
@@ -169,11 +209,11 @@ func (t *SqliteConn) UserUpdate(user *record.User) error {
 	now := time.Now()
 	fmtTime := now.Format(record.USER_TIME_STR)
 	_, err := t.db.Exec(cmd_user_update,
-		user.GetFullName(),        /* FIELD_FULLNAME		*/
-		user.GetEmail(),           /* FIELD_EMAIL	  		*/
-		user.GetLoginName(),       /* FIELD_LOGINNAME 		*/
-		user.GetPassword(),        /* FIELD_PASSWORD 		*/
-		user.GetToken(),           /* FIELD_TOKEN 			*/
+		user.FullName,             /* FIELD_FULLNAME		*/
+		user.Email,                /* FIELD_EMAIL	  		*/
+		user.LoginName,            /* FIELD_LOGINNAME 		*/
+		user.Password,             /* FIELD_PASSWORD 		*/
+		user.Token,                /* FIELD_TOKEN 			*/
 		user.GetLoginAtStr(),      /* FIELD_LOGIN_DT 		*/
 		user.GetLogoutAtStr(),     /* FIELD_LOGOUT_DT 		*/
 		user.GetLastAuthAtStr(),   /* FIELD_LASTAUTH_DT 	*/
@@ -185,14 +225,14 @@ func (t *SqliteConn) UserUpdate(user *record.User) error {
 		user.GetDeletedAtStr(),    /* FIELD_DELETED_DT 	*/
 		strconv.FormatBool(user.IsActive),
 		strconv.FormatBool(user.IsLoggedIn),
-		user.GetGuid()) /* FIELD_GUID */
+		user.Guid) /* FIELD_GUID */
 	if err != nil {
-		return storage.NewStorageFromError(err, http.StatusInternalServerError)
+		return NewGeneralFromError(err, http.StatusInternalServerError)
 	}
 
-	return storage.ErrStatusOk
+	user.SetUpdatedAt(now)
+	return nil
 }
-
 
 // Release is used to release any locks/resources that may have been created. In SQLITE we
 // aren't using any locks, so we don't have to do anything.

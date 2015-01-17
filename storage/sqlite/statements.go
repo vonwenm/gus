@@ -1,12 +1,5 @@
 package sqlite
 
-import (
-//"database/sql"
-//"sync"
-//"strings"
-//"fmt"
-)
-
 // The fields that we save. Defined as constants so I don't have to retype them
 
 const (

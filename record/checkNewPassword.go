@@ -6,21 +6,22 @@ package record
 
 import (
 	"strings"
+	. "github.com/cgentry/gus/ecode"
 )
 
 const (
 	PASSWORD_MINIMUM_LENGTH = 6
 )
 
-func (user *User) CheckNewPassword(newPassword string) UserStatusCode {
+func (user *User) CheckNewPassword(newPassword string) error {
 	if len(newPassword) < PASSWORD_MINIMUM_LENGTH {
-		return USER_PASSWD_TOO_SHORT
+		return ErrPasswordTooShort
 	}
 
 	lpwd := strings.ToLower(newPassword)
 
 	if lpwd == "password" {
-		return USER_PASSWORD_TOO_SIMPLE
+		return ErrPasswordTooSimple
 	}
-	return USER_OK
+	return nil
 }

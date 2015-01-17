@@ -42,6 +42,11 @@ type Reseter interface {
 	Reset()
 }
 
+// Optional database 'ping' interface. This will check the database connection
+type Pinger interface {
+	Ping() error
+}
+
 //Optional Release interface. This will release any locks/resources that a driver may have set
 //For example, the MySQL will do a SELECT...FOR UPDATE for all of the FetchXXX calls. The
 //release will cause an explicit commit. This, in the code, will be called by a 'defer' call after

@@ -13,9 +13,10 @@ type UserReturn struct {
 	LoginName string // The ID they use to login with
 	Email     string // Email address
 
-	LoginAt    time.Time // THIS login time
-	LastAuthAt time.Time // Last login time
-	TimeoutAt  time.Time // Required to authenticate by
+	LoginAt      time.Time // THIS login time
+	LastAuthAt   time.Time // Last login time
+	TimeoutAt    time.Time // Required to authenticate by
+	MaxSessionAt time.Time // This is when the user will be forced off
 
 	CreatedAt time.Time // When the user was created
 }
@@ -27,20 +28,18 @@ type UserReturn struct {
 func NewReturnFromUser(user *User) UserReturn {
 
 	rtn := UserReturn{}
-	rtn.Guid = user.GetGuid()
-	if user.Token == "" {
-		user.Token = user.CreateToken()
-	}
+	rtn.Guid = user.Guid
 	rtn.Token = user.Token
 
 	rtn.LoginAt = user.LoginAt
-	rtn.LastAuthAt = user.LoginAt
+	rtn.LastAuthAt = user.LastAuthAt
 	rtn.CreatedAt = user.CreatedAt
 	rtn.TimeoutAt = user.TimeoutAt
+	rtn.MaxSessionAt = user.MaxSessionAt
 
-	rtn.FullName = user.GetFullName()
-	rtn.Email = user.GetEmail()
-	rtn.LoginName = user.GetLoginName()
+	rtn.FullName = user.FullName
+	rtn.Email = user.Email
+	rtn.LoginName = user.LoginName
 
 	return rtn
 

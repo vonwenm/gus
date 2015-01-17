@@ -39,4 +39,12 @@ func TestConversions(t *testing.T) {
 		So(now.IsZero(), ShouldBeFalse)
 		So(now.Format(USER_TIME_STR), ShouldEqual, `2014-12-29T12:37:36Z`)
 	})
+
+	Convey("Check StrToTime - bad values", t, func() {
+		nowStr := "Miller time"
+		now := StrToTime(nowStr)
+
+		So(now.IsZero(), ShouldBeTrue)
+
+	})
 }

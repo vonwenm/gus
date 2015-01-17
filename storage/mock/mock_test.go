@@ -65,8 +65,8 @@ func TestMockRegister(t *testing.T) {
 		So(db.RegisterUser(u), ShouldBeNil)
 		So(m.WasCalled(`RegisterUser`), ShouldBeTrue)
 		rtnUser := m.LastUserRecord()
-		So(rtnUser.GetDomain(), ShouldEqual, u.GetDomain())
-		So(rtnUser.GetFullName(), ShouldEqual, u.GetFullName())
+		So(rtnUser.Domain, ShouldEqual, u.Domain)
+		So(rtnUser.FullName, ShouldEqual, u.FullName)
 
 		So(db.Close(), ShouldBeNil)
 		So(m.WasCalled(`close`), ShouldBeTrue)
@@ -87,20 +87,20 @@ func TestUserLoginLogout(t *testing.T) {
 		So(db.UserLogin(u), ShouldBeNil)
 		So(m.WasCalled(`UserLogin`), ShouldBeTrue)
 		rtnUser := m.LastUserRecord()
-		So(rtnUser.GetDomain(), ShouldEqual, u.GetDomain())
-		So(rtnUser.GetFullName(), ShouldEqual, u.GetFullName())
+		So(rtnUser.Domain, ShouldEqual, u.Domain)
+		So(rtnUser.FullName, ShouldEqual, u.FullName)
 
 		So(db.UserAuthenticated(u), ShouldBeNil)
 		So(m.WasCalled(`UserAuthenticated`), ShouldBeTrue)
 		rtnUser = m.LastUserRecord()
-		So(rtnUser.GetDomain(), ShouldEqual, u.GetDomain())
-		So(rtnUser.GetFullName(), ShouldEqual, u.GetFullName())
+		So(rtnUser.Domain, ShouldEqual, u.Domain)
+		So(rtnUser.FullName, ShouldEqual, u.FullName)
 
 		So(db.UserLogout(u), ShouldBeNil)
 		So(m.WasCalled(`UserLogout`), ShouldBeTrue)
 		rtnUser = m.LastUserRecord()
-		So(rtnUser.GetDomain(), ShouldEqual, u.GetDomain())
-		So(rtnUser.GetFullName(), ShouldEqual, u.GetFullName())
+		So(rtnUser.Domain, ShouldEqual, u.Domain)
+		So(rtnUser.FullName, ShouldEqual, u.FullName)
 
 		So(db.Close(), ShouldBeNil)
 		So(m.WasCalled(`close`), ShouldBeTrue)
@@ -123,8 +123,8 @@ func TestFetchUserByGuid(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(m.WasCalled(`FetchUserByGuid`), ShouldBeTrue)
 
-		So(rtnUser.GetDomain(), ShouldEqual, u.GetDomain())
-		So(rtnUser.GetFullName(), ShouldEqual, u.GetFullName())
+		So(rtnUser.Domain, ShouldEqual, u.Domain)
+		So(rtnUser.FullName, ShouldEqual, u.FullName)
 
 		So(db.Close(), ShouldBeNil)
 		So(m.WasCalled(`close`), ShouldBeTrue)
@@ -170,8 +170,8 @@ func TestFetchUserByToken(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(m.WasCalled(`FetchUserByToken`), ShouldBeTrue)
 
-		So(rtnUser.GetDomain(), ShouldEqual, u.GetDomain())
-		So(rtnUser.GetFullName(), ShouldEqual, u.GetFullName())
+		So(rtnUser.Domain, ShouldEqual, u.Domain)
+		So(rtnUser.FullName, ShouldEqual, u.FullName)
 
 		So(db.Close(), ShouldBeNil)
 		So(m.WasCalled(`close`), ShouldBeTrue)
@@ -217,8 +217,8 @@ func TestFetchUserByEmail(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(m.WasCalled(`FetchUserByEmail`), ShouldBeTrue)
 
-		So(rtnUser.GetDomain(), ShouldEqual, u.GetDomain())
-		So(rtnUser.GetFullName(), ShouldEqual, u.GetFullName())
+		So(rtnUser.Domain, ShouldEqual, u.Domain)
+		So(rtnUser.FullName, ShouldEqual, u.FullName)
 
 		So(db.Close(), ShouldBeNil)
 		So(m.WasCalled(`close`), ShouldBeTrue)
@@ -264,8 +264,8 @@ func TestFetchUserByLogin(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(m.WasCalled(`FetchUserByLogin`), ShouldBeTrue)
 
-		So(rtnUser.GetDomain(), ShouldEqual, u.GetDomain())
-		So(rtnUser.GetFullName(), ShouldEqual, u.GetFullName())
+		So(rtnUser.Domain, ShouldEqual, u.Domain)
+		So(rtnUser.FullName, ShouldEqual, u.FullName)
 
 		So(db.Close(), ShouldBeNil)
 		So(m.WasCalled(`close`), ShouldBeTrue)

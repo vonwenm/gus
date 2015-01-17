@@ -57,35 +57,10 @@ func (user *User) SetToken(val string) error {
 	return nil
 }
 
-func (user *User) SetLoginAtStr(val string) error {
-	return nil
-}
-
 func (user *User) SetLoginAt(t time.Time) error {
 	user.LoginAt = t
 	return nil
 }
-
-// SetLoginAt - set the logged in date/time as now
-func (user *User) SetLoginAtNow() error {
-	user.LoginAt = time.Now()
-	return nil
-}
-
-// GetCreatedAt to be now. The created at can only be done once
-func (user *User) SetCreatedAtNow() error {
-	if user.Id == 0 {
-		user.CreatedAt = time.Now()
-	}
-	return nil
-}
-
-// SetUpdateAt will set the update time stamp to now
-func (user *User) SetUpdatedAtNow() error {
-	user.UpdatedAt = time.Now()
-	return nil
-}
-
 func (user *User) SetUpdatedAt(t time.Time) error {
 	user.UpdatedAt = t
 	return nil
@@ -137,6 +112,11 @@ func (user *User) SetLogoutAt(t time.Time) error {
 
 func (user *User) SetLastFailedAt(t time.Time) error {
 	user.LastFailedAt = t
+	return nil
+}
+
+func (user *User) SetLastAuthAt(t time.Time) error {
+	user.LastAuthAt = t
 	return nil
 }
 

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"github.com/cgentry/gus/ecode"
 	"github.com/cgentry/gus/record"
 	"github.com/cgentry/gus/record/request"
 	"github.com/cgentry/gus/record/response"
@@ -24,25 +25,26 @@ func generateCaller() *record.User {
 
 func TestBadRegister(t *testing.T) {
 	caller := generateCaller()
-	store, _ := storage.Open("sqlite", ":memory:")
-	defer store.Close()
-	store.CreateStore()
+	ctrl := NewServiceControl()
+	ctrl.DataStore, _ = storage.Open("sqlite", ":memory:")
+	defer ctrl.DataStore.Close()
+	ctrl.DataStore.CreateStore()
 
 	Convey("Send Bad Requests in", t, func() {
 
-		pack := ServiceRegister(store, caller, nil)
+		pack := ServiceRegister(ctrl, caller, nil)
 		rtnHead := pack.Head.(*response.Head)
-		So(rtnHead.Message, ShouldContainSubstring, storage.ErrInvalidHeader.Error())
-		So(rtnHead.Code, ShouldEqual, storage.ErrInvalidHeader.Code())
+		So(rtnHead.Message, ShouldContainSubstring, ecode.ErrInvalidHeader.Error())
+		So(rtnHead.Code, ShouldEqual, ecode.ErrInvalidHeader.Code())
 		So(pack.IsBodySet(), ShouldBeFalse)
 		So(pack.Body, ShouldBeBlank)
 
 		p := record.NewPackage()
 		p.Head = request.NewHead()
-		pack = ServiceRegister(store, caller, p)
+		pack = ServiceRegister(ctrl, caller, p)
 		rtnHead = pack.Head.(*response.Head)
 		So(rtnHead.Message, ShouldContainSubstring, `No domain`)
-		So(rtnHead.Code, ShouldEqual, storage.ErrInvalidHeader.Code())
+		So(rtnHead.Code, ShouldEqual, ecode.ErrInvalidHeader.Code())
 		So(pack.IsBodySet(), ShouldBeFalse)
 		So(pack.Body, ShouldBeBlank)
 
@@ -51,24 +53,25 @@ func TestBadRegister(t *testing.T) {
 		h.Id = `ID`
 		p.Head = h
 
-		pack = ServiceRegister(store, caller, p)
+		pack = ServiceRegister(ctrl, caller, p)
 		rtnHead = pack.Head.(*response.Head)
 		So(rtnHead.Message, ShouldContainSubstring, `Invalid Checksum`)
-		So(rtnHead.Code, ShouldEqual, storage.ErrInvalidHeader.Code())
+		So(rtnHead.Code, ShouldEqual, ecode.ErrInvalidHeader.Code())
 		So(pack.IsBodySet(), ShouldBeFalse)
 		So(pack.Body, ShouldBeBlank)
 	})
 }
 func TestSimpleRegister(t *testing.T) {
-
+	var err error
 	mock.RegisterMockStore()
 	caller := generateCaller()
-	store, err := storage.Open("sqlite", ":memory:")
+	ctrl := NewServiceControl()
+	ctrl.DataStore, err = storage.Open("sqlite", ":memory:")
 	if err != nil {
 		t.Error("Culd not open database: " + err.Error())
 	}
-	defer store.Close()
-	store.CreateStore()
+	defer ctrl.DataStore.Close()
+	ctrl.DataStore.CreateStore()
 
 	Convey("Send Simple register request in", t, func() {
 		reg := request.NewRegister()
@@ -89,7 +92,7 @@ func TestSimpleRegister(t *testing.T) {
 		So(p.GetSignature(), ShouldNotEqual, "")
 
 		fmt.Println("Call serviceregister")
-		pack := ServiceRegister(store, caller, p)
+		pack := ServiceRegister(ctrl, caller, p)
 		fmt.Println("\nReturn serviceregister\n")
 		fmt.Println(pack)
 
@@ -105,13 +108,13 @@ func TestSimpleRegister(t *testing.T) {
 		So(userRtn.Email, ShouldEqual, reg.Email)
 
 		// DUPLICATE EMAIL ERROR
-		pack = ServiceRegister(store, caller, p)
+		pack = ServiceRegister(ctrl, caller, p)
 		fmt.Println("\nReturn bad:\n")
 		fmt.Println(pack)
 
 		rtnHead = pack.Head.(*response.Head)
-		So(rtnHead.Message, ShouldEqual, storage.ErrDuplicateEmail.Error())
-		So(rtnHead.Code, ShouldEqual, storage.ErrDuplicateEmail.Code())
+		So(rtnHead.Message, ShouldEqual, ecode.ErrDuplicateEmail.Error())
+		So(rtnHead.Code, ShouldEqual, ecode.ErrDuplicateEmail.Code())
 
 		So(len(pack.Body), ShouldEqual, 0) // No data when an error occurs
 
@@ -132,8 +135,7 @@ func TestSimpleRegister(t *testing.T) {
 
 		So(p.GetSignature(), ShouldNotEqual, "")
 
-		pack := ServiceLogin(store, caller, p)
-		fmt.Println(pack)
+		pack := ServiceLogin(ctrl, caller, p)
 		rtnHead := pack.Head.(*response.Head)
 		So(rtnHead.Message, ShouldBeBlank)
 		So(rtnHead.Code, ShouldEqual, 200)
@@ -148,7 +150,7 @@ func TestSimpleRegister(t *testing.T) {
 		reqLogout := request.NewLogout()
 		reqLogout.Token = userRtn.Token
 		p.SetBody(reqLogout)
-		pack = ServiceLogout(store, caller, p)
+		pack = ServiceLogout(ctrl, caller, p)
 
 		rtnHead = pack.Head.(*response.Head)
 		So(rtnHead.Message, ShouldBeBlank)
@@ -156,10 +158,10 @@ func TestSimpleRegister(t *testing.T) {
 		So(pack.IsBodySet(), ShouldBeFalse)
 		So(pack.Body, ShouldBeBlank)
 
-		pack = ServiceLogout(store, caller, p)
+		pack = ServiceLogout(ctrl, caller, p)
 		rtnHead = pack.Head.(*response.Head)
-		So(rtnHead.Message, ShouldEqual, storage.ErrUserNotLoggedIn.Error())
-		So(rtnHead.Code, ShouldEqual, storage.ErrUserNotLoggedIn.Code())
+		So(rtnHead.Message, ShouldEqual, ecode.ErrUserNotLoggedIn.Error())
+		So(rtnHead.Code, ShouldEqual, ecode.ErrUserNotLoggedIn.Code())
 		So(pack.IsBodySet(), ShouldBeFalse)
 		So(pack.Body, ShouldBeBlank)
 	})
@@ -180,22 +182,22 @@ func TestSimpleRegister(t *testing.T) {
 
 		So(p.GetSignature(), ShouldNotEqual, "")
 
-		pack := ServiceLogin(store, caller, p)
+		pack := ServiceLogin(ctrl, caller, p)
 		fmt.Println(pack)
 		rtnHead := pack.Head.(*response.Head)
 		So(rtnHead.Message, ShouldNotBeBlank)
-		So(rtnHead.Message, ShouldEqual, storage.ErrUserNotFound.Error())
-		So(rtnHead.Code, ShouldEqual, storage.ErrUserNotFound.Code())
+		So(rtnHead.Message, ShouldEqual, ecode.ErrUserNotFound.Error())
+		So(rtnHead.Code, ShouldEqual, ecode.ErrUserNotFound.Code())
 
 		So(pack.IsBodySet(), ShouldBeFalse)
 		So(pack.Body, ShouldBeBlank)
 
 		p.SetBody(`{Login: 10:21:55}`)
-		pack = ServiceLogin(store, caller, p)
+		pack = ServiceLogin(ctrl, caller, p)
 		rtnHead = pack.Head.(*response.Head)
 		So(rtnHead.Message, ShouldNotBeBlank)
-		So(rtnHead.Message, ShouldEqual, storage.ErrInvalidBody.Error())
-		So(rtnHead.Code, ShouldEqual, storage.ErrInvalidBody.Code())
+		So(rtnHead.Message, ShouldEqual, ecode.ErrInvalidBody.Error())
+		So(rtnHead.Code, ShouldEqual, ecode.ErrInvalidBody.Code())
 
 		So(pack.IsBodySet(), ShouldBeFalse)
 		So(pack.Body, ShouldBeBlank)
@@ -215,24 +217,24 @@ func TestSimpleRegister(t *testing.T) {
 
 		So(p.GetSignature(), ShouldNotEqual, "")
 
-		pack := ServiceLogout(store, caller, p)
-		fmt.Println(pack)
+		pack := ServiceLogout(ctrl, caller, p)
+
 		rtnHead := pack.Head.(*response.Head)
 		So(rtnHead.Message, ShouldNotBeBlank)
-		So(rtnHead.Message, ShouldEqual, storage.ErrInvalidBody.Error())
-		So(rtnHead.Code, ShouldEqual, storage.ErrInvalidBody.Code())
+		So(rtnHead.Message, ShouldEqual, ecode.ErrInvalidBody.Error())
+		So(rtnHead.Code, ShouldEqual, ecode.ErrInvalidBody.Code())
 
 		So(pack.IsBodySet(), ShouldBeFalse)
 		So(pack.Body, ShouldBeBlank)
 
 	})
-	Convey(`Test Updating user` , t , func(){
+	Convey(`Test Updating user`, t, func() {
 
 		reqLogin := request.NewLogin()
 		reqLogin.Login = "*Login"
 		reqLogin.Password = "12345678abcdefg"
 
-		originalUserRecord,err := store.FetchUserByLogin(`*Login`)
+		originalUserRecord, err := ctrl.DataStore.FetchUserByLogin(`*Login`)
 		So(err, ShouldBeNil)
 
 		h := request.NewHead()
@@ -246,7 +248,7 @@ func TestSimpleRegister(t *testing.T) {
 
 		So(p.GetSignature(), ShouldNotEqual, "")
 
-		pack := ServiceLogin(store, caller, p)
+		pack := ServiceLogin(ctrl, caller, p)
 		fmt.Println(pack)
 		rtnHead := pack.Head.(*response.Head)
 		So(rtnHead.Message, ShouldBeBlank)
@@ -259,14 +261,16 @@ func TestSimpleRegister(t *testing.T) {
 		// NOW UPDATE USING TOKEN
 		reqUpdate := request.NewUpdate()
 		reqUpdate.Login = "*LoginNew"
-		reqUpdate.Name  = "*Name New"
+		reqUpdate.Name = "*Name New"
 		reqUpdate.Email = "*Email New"
 		reqUpdate.Token = token
 
 		p.SetBody(reqUpdate)
 		options := NewOptions()
 		options.Set(PERMIT_LOGIN, true)
-		pack = ServiceUpdate(store,caller,p,options)
+		pack = ServiceUpdate(ctrl, caller, p, options)
+		fmt.Println("****************")
+		fmt.Println(pack)
 
 		rtnHead = pack.Head.(*response.Head)
 		So(rtnHead.Message, ShouldEqual, "Fields updated: Login")
@@ -274,9 +278,9 @@ func TestSimpleRegister(t *testing.T) {
 		userRtn2 := record.UserReturn{}
 		err = json.Unmarshal([]byte(pack.Body), &userRtn2)
 		So(err, ShouldBeNil)
-		So( userRtn2.LoginName, ShouldEqual, reqUpdate.Login)
-		So( userRtn2.FullName , ShouldEqual, userRtn.FullName )
-		So( userRtn2.Email , ShouldEqual, userRtn.Email )
+		So(userRtn2.LoginName, ShouldEqual, reqUpdate.Login)
+		So(userRtn2.FullName, ShouldEqual, userRtn.FullName)
+		So(userRtn2.Email, ShouldEqual, userRtn.Email)
 
 		//
 		// Attempt number 3: email only
@@ -284,7 +288,7 @@ func TestSimpleRegister(t *testing.T) {
 		options.Set(PERMIT_EMAIL, true)
 		reqUpdate.Login = "*Login Old"
 		p.SetBody(reqUpdate)
-		pack = ServiceUpdate(store,caller,p,options)
+		pack = ServiceUpdate(ctrl, caller, p, options)
 
 		rtnHead = pack.Head.(*response.Head)
 		So(rtnHead.Message, ShouldEqual, "Fields updated: Email")
@@ -293,10 +297,10 @@ func TestSimpleRegister(t *testing.T) {
 		err = json.Unmarshal([]byte(pack.Body), &userRtn3)
 		So(err, ShouldBeNil)
 		fmt.Println("\n******* RTN3")
-		fmt.Println( pack)
-		So( userRtn3.LoginName, ShouldEqual, userRtn2.LoginName)
-		So( userRtn3.FullName , ShouldEqual, userRtn2.FullName )
-		So( userRtn3.Email , ShouldEqual, reqUpdate.Email )
+		fmt.Println(pack)
+		So(userRtn3.LoginName, ShouldEqual, userRtn2.LoginName)
+		So(userRtn3.FullName, ShouldEqual, userRtn2.FullName)
+		So(userRtn3.Email, ShouldEqual, reqUpdate.Email)
 
 		//
 		// Attempt number 4: ALL of them (except password)
@@ -307,7 +311,7 @@ func TestSimpleRegister(t *testing.T) {
 		reqUpdate.Name = "*Name all"
 
 		p.SetBody(reqUpdate)
-		pack = ServiceUpdate(store,caller,p,options)
+		pack = ServiceUpdate(ctrl, caller, p, options)
 
 		rtnHead = pack.Head.(*response.Head)
 		So(rtnHead.Message, ShouldEqual, "Fields updated: Login, Name, Email")
@@ -316,16 +320,15 @@ func TestSimpleRegister(t *testing.T) {
 		err = json.Unmarshal([]byte(pack.Body), &userRtn4)
 		So(err, ShouldBeNil)
 		fmt.Println("\n******* RTN4")
-		fmt.Println( pack)
-		So( userRtn4.LoginName, ShouldEqual, reqUpdate.Login)
-		So( userRtn4.FullName , ShouldEqual, reqUpdate.Name )
-		So( userRtn4.Email , ShouldEqual, reqUpdate.Email )
-
+		fmt.Println(pack)
+		So(userRtn4.LoginName, ShouldEqual, reqUpdate.Login)
+		So(userRtn4.FullName, ShouldEqual, reqUpdate.Name)
+		So(userRtn4.Email, ShouldEqual, reqUpdate.Email)
 
 		//
 		// Attempt number 5: Password
 		options = NewOptions()
-		options.Set(PERMIT_ALL, true)
+		options.Set(PERMIT_PASSWORD, true)
 		reqUpdate.Login = "*Login all"
 		reqUpdate.Email = "email@all.com"
 		reqUpdate.Name = "*Name all"
@@ -333,7 +336,7 @@ func TestSimpleRegister(t *testing.T) {
 		reqUpdate.NewPassword = `abcdefg987654321`
 
 		p.SetBody(reqUpdate)
-		pack = ServiceUpdate(store,caller,p,options)
+		pack = ServiceUpdate(ctrl, caller, p, options)
 
 		rtnHead = pack.Head.(*response.Head)
 		So(rtnHead.Message, ShouldEqual, "Fields updated: Password")
@@ -342,13 +345,13 @@ func TestSimpleRegister(t *testing.T) {
 		err = json.Unmarshal([]byte(pack.Body), &userRtn5)
 		So(err, ShouldBeNil)
 		fmt.Println("\n******* RTN5")
-		fmt.Println( pack)
-		So( userRtn5.LoginName, ShouldEqual, userRtn4.LoginName)
-		So( userRtn5.FullName , ShouldEqual, userRtn4.FullName)
-		So( userRtn5.Email , ShouldEqual, userRtn4.Email )
+		fmt.Println(pack)
+		So(userRtn5.LoginName, ShouldEqual, userRtn4.LoginName)
+		So(userRtn5.FullName, ShouldEqual, userRtn4.FullName)
+		So(userRtn5.Email, ShouldEqual, userRtn4.Email)
 
-		lastUserRecord,err := store.FetchUserByLogin(`*Login all`)
+		lastUserRecord, err := ctrl.DataStore.FetchUserByLogin(`*Login all`)
 		So(err, ShouldBeNil)
-		So(lastUserRecord.Password, ShouldNotEqual, originalUserRecord.Password )
+		So(lastUserRecord.Password, ShouldNotEqual, originalUserRecord.Password)
 	})
 }

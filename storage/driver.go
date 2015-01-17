@@ -3,7 +3,7 @@ package storage
 import (
 	"fmt"
 	"github.com/cgentry/gus/record"
-	"net/http"
+	. "github.com/cgentry/gus/ecode"
 )
 
 const (
@@ -13,64 +13,7 @@ const (
 	BANK_USER_DATA_NOTFOUND = iota
 )
 
-type StorageError struct {
-	errorString string
-	errorCode   int
-}
-
-func NewStorageError(msg string, code int) *StorageError {
-	return &StorageError{errorString: msg, errorCode: code}
-}
-
-func NewStorageFromError(e error, code int) *StorageError {
-	if e == nil {
-		return nil
-	}
-	return &StorageError{errorString: e.Error(), errorCode: code}
-
-}
-
-func (s *StorageError) Error() string {
-	return s.errorString
-}
-func (s *StorageError) Code() int {
-	return s.errorCode
-}
-
-/*
- *			Dynamic interfaces
- */
-var driverMap = make(map[string]Driver)
-
-var ErrInvalidHeader = NewStorageError("Invalid header in request", http.StatusBadRequest)
-var ErrInvalidChecksum = NewStorageError("Invalid Checksum", http.StatusBadRequest)
-var ErrInvalidBody = NewStorageError("Invalid body (mistmatch request?)", http.StatusBadRequest)
-var ErrEmptyFieldForLookup = NewStorageError("Lookup field is empty", http.StatusBadRequest)
-var ErrInvalidPasswordOrUser = NewStorageError("Invalid password or user id", http.StatusBadRequest)
-
-var ErrNoDriverFound = NewStorageError("No storage driver found", http.StatusInternalServerError)
-var ErrNoSupport = NewStorageError("Storage driver does not support function call", http.StatusNotImplemented)
-var ErrNotOpen = NewStorageError("Storage driver is not open", http.StatusInternalServerError)
-var ErrAlreadyRegistered = NewStorageError("Storage driver already registered", http.StatusInternalServerError)
-var ErrInternalDatabase = NewStorageError("Internal storage error while executing operation", http.StatusInternalServerError)
-
-var ErrUserNotFound = NewStorageError("User not found", http.StatusNotFound)
-
-var ErrInvalidGuid = NewStorageError("Invalid Guid for lookup", http.StatusNotFound)
-var ErrInvalidEmail = NewStorageError("Invalid email for lookup", http.StatusNotFound)
-var ErrInvalidToken = NewStorageError("Invalid token for lookup", http.StatusNotFound)
-
-var ErrDuplicateGuid = NewStorageError("User GUID already in use", http.StatusInternalServerError)
-var ErrDuplicateEmail = NewStorageError("Email registered", http.StatusConflict)
-var ErrDuplicateLogin = NewStorageError("Login name already exists", http.StatusConflict)
-
-var ErrUserNotRegistered = NewStorageError("User not registered", http.StatusBadRequest)
-var ErrUserNotLoggedIn = NewStorageError("User not logged in", http.StatusBadRequest)
-var ErrUserLoggedIn = NewStorageError("User already logged in", http.StatusBadRequest)
-var ErrUserNotActive = NewStorageError("User is not yet activated", http.StatusUnauthorized)
-
-var ErrStatusOk = NewStorageError("", http.StatusOK)
-
+var driverMap = make(map[string]Driver,2)
 const driver_name = "Storage"
 
 // Find the driver by the 'name' and add it into the map so it can be opened.
@@ -87,7 +30,7 @@ func Register(name string, driver Driver) error {
 	return nil
 }
 
-func ToString() string {
+func String() string {
 	rtn := fmt.Sprintf("Length is %d\n", len(driverMap))
 	for key := range driverMap {
 		rtn = rtn + key + "\n"
@@ -99,6 +42,9 @@ func ResetRegister() {
 	driverMap = make(map[string]Driver)
 }
 
+// Store holds the state for any storage driver. It allows you to have
+// consistent returns, such as getting the last error, discovering how
+// a connection was made (connectString) or the name of the driver (name)
 type Store struct {
 	name          string
 	connectString string
@@ -172,7 +118,7 @@ func (s *Store) Reset() {
 	return
 }
 
-// Reset any errors or intermediate conditions
+// Release any locks or memory
 func (s *Store) Release() error {
 	s.lastError = nil
 	if release, found := s.connection.(Releaser); found {
@@ -205,6 +151,14 @@ func (s *Store) CreateStore() error {
 		return s.saveLastError(creater.CreateStore())
 	}
 	return ErrNoSupport
+}
+
+func (s *Store) Ping() error {
+	s.lastError = nil
+	if pinger, found := s.connection.(Pinger); found {
+		s.lastError = pinger.Ping()
+	}
+	return s.lastError
 }
 
 /*

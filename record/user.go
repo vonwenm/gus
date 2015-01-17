@@ -6,11 +6,10 @@ package record
 import (
 	"crypto/md5"
 	"crypto/rand"
-	"encoding/json"
 	"errors"
 	"fmt"
+	. "github.com/cgentry/gus/ecode"
 	"github.com/cgentry/gus/encryption"
-	"strings"
 	"time"
 )
 
@@ -27,22 +26,44 @@ const USER_TIME_STR = time.RFC3339
 // Standard name for the user store.
 const USER_STORE_NAME = "User"
 
-func init() {
-	userControl = new(UserControl)
-	userControl.SetMaxDuration("24h")
-	userControl.SetTimeout("20m")
+func initialiseControl() *UserControl {
+	u := UserControl{}
+
+	u.SetMaxDuration("24h")
+	u.SetTimeout("20m")
+	return &u
 }
 
-type UserStatusCode int
-type UserInterface interface {
-	Login(string) (UserStatusCode, error)
-	Logout()
-	ChangePassword(token, oldPassword, newPassword string) UserStatusCode
-	Authenticate(token string) UserStatusCode
-}
-
+/*
+ * 		UserControl routines. These set the fields for timeout and control
+ */
 // A control variable holds all of the values we need to control logging in
-var userControl *UserControl
+var userControl = initialiseControl()
+
+type UserControl struct {
+	MaximumSessionDuration  time.Duration
+	TimeSinceAuthentication time.Duration
+}
+
+func (uc *UserControl) SetMaxDuration(interval string) (err error) {
+	uc.MaximumSessionDuration, err = time.ParseDuration(interval)
+	return err
+}
+
+func (uc *UserControl) SetTimeout(interval string) (err error) {
+	uc.TimeSinceAuthentication, err = time.ParseDuration(interval)
+	fmt.Printf("\n****** Duration of %s is %d, duration of 20m is %d\n", interval, uc.TimeSinceAuthentication, 20*time.Minute)
+
+	return err
+}
+
+
+type UserInterface interface {
+	Login(string) error
+	Logout()
+	ChangePassword(oldPassword, newPassword string) error
+	Authenticate(token string) error
+}
 
 // User is the internal record used to store all of the data that is held
 // for a single user. The database routines need to take care of serialising/mapping
@@ -97,19 +118,18 @@ func (u *User) String() string {
 	Token:		'%s'
 	IsLoggedIn:	'%t'
 	IsActive:	'%t'
+	TimeoutAt:  '%s'
+	NOW:        '%s'
 	`,
-		u.GetGuid(),
-		u.GetDomain(),
-		u.GetLoginName(),
+		u.Guid,
+		u.Domain,
+		u.LoginName,
 		u.Token,
 		u.IsLoggedIn,
-		u.IsActive)
+		u.IsActive,
+		u.GetTimeoutStr(),
+		time.Now().Format(USER_TIME_STR))
 
-}
-
-type UserControl struct {
-	MaximumSessionDuration  time.Duration
-	TimeSinceAuthentication time.Duration
 }
 
 /*
@@ -121,25 +141,11 @@ type UserControl struct {
 func CreateSalt(len int) string {
 	b := make([]byte, len)
 	_, err := rand.Read(b)
-	if err != nil {
-		fmt.Println(err)
-	}
+	if err != nil { // This should never happen
+		panic(err.Error()) // ...and won't be covered in coverage report
+	} // ...if it does - we can't run the system
 
 	return fmt.Sprintf("%x", b)
-}
-
-/*
- * 		UserControl routines. These set the fields for timeout and control
- */
-
-func (uc *UserControl) SetMaxDuration(interval string) (err error) {
-	uc.MaximumSessionDuration, err = time.ParseDuration(interval)
-	return err
-}
-
-func (uc *UserControl) SetTimeout(interval string) (err error) {
-	uc.TimeSinceAuthentication, err = time.ParseDuration(interval)
-	return err
 }
 
 /*
@@ -161,6 +167,7 @@ func NewUser() *User {
 	user.Token = ""
 	user.IsActive = true
 	user.IsLoggedIn = false
+	user.GenerateGuid()
 	return user
 }
 
@@ -170,61 +177,21 @@ func NewTestUser() *User {
 	user.SetDomain("_test")
 	user.SetName("test")
 	user.SetEmail("test@nowhere.com")
+
 	return user
 }
 
-func contains(s []string, e string) bool {
-	for _, a := range s {
-		if a == e {
-			return true
-		}
+// Generate a unique GUID for the user record. This GUID will be based upon random numbers
+// and the creation string.
+func (user *User) GenerateGuid() {
+	if user.Guid == "" {
+		guid := md5.New()
+		guid.Write([]byte(user.GetCreatedAtStr())) // Add in the creation string
+		guid.Write([]byte(user.Salt))              // And the user's magic (unique) number
+		guid.Write([]byte(CreateSalt(60)))         // A bit more entropy (so it isn't repeatable)
+		out := guid.Sum(nil)
+		user.Guid = fmt.Sprintf("%x-%x-%x-%x-%x", out[0:4], out[4:6], out[6:8], out[8:10], out[10:])
 	}
-	return false
-}
-
-// Unmarshall will take the string and decode the JSON within it.
-// It will move and check each field to ensure proper values are received
-func (user *User) Unmarshal(jsonIn string, needs []string) error {
-	var data UserJson
-	var missing []string
-
-	err := json.Unmarshal([]byte(jsonIn), &data)
-
-	data.Email = strings.TrimSpace(data.Email)
-	data.FullName = strings.TrimSpace(data.FullName)
-	data.LoginName = strings.TrimSpace(data.LoginName)
-	data.Password = strings.TrimSpace(data.Password)
-
-	if err == nil {
-		if data.Email != "" {
-			user.Email = data.Email
-		} else if contains(needs, "Email") {
-			missing = append(missing, "Email")
-		}
-
-		if data.FullName != "" {
-			user.FullName = data.FullName
-		} else if contains(needs, "Email") {
-			missing = append(missing, "Email")
-		}
-
-		if data.LoginName != "" {
-			user.LoginName = data.FullName
-		} else if contains(needs, "LoginName") {
-			missing = append(missing, "LoginName")
-		}
-		if data.Password != "" {
-			user.Password = data.Password
-		} else if contains(needs, "Password") {
-			missing = append(missing, "Password")
-		}
-	}
-
-	if len(missing) > 0 {
-		err = errors.New("Missing fields: " + strings.Join(missing, ", "))
-	}
-
-	return err
 }
 
 // CreateToken will generate a short-use token for confirmation with authentication.
@@ -232,7 +199,7 @@ func (user *User) Unmarshal(jsonIn string, needs []string) error {
 // to user information with it.
 func (user *User) CreateToken() string {
 	guid := md5.New()
-	guid.Write([]byte(user.GetGuid())) // Always based on user's GUID
+	guid.Write([]byte(user.Guid))      // Always based on user's GUID
 	guid.Write([]byte(CreateSalt(20))) // And a non-repeatable magic number
 	out := guid.Sum(nil)
 	return fmt.Sprintf("%x-%x-%x-%x-%x", out[0:4], out[4:6], out[6:8], out[8:10], out[10:])
@@ -240,53 +207,40 @@ func (user *User) CreateToken() string {
 
 // CheckExpirationDates will see if the token is valid or expired. If it
 // is expired, the token will be cleared and the proper status will be set
-func (user *User) CheckExpirationDates() UserStatusCode {
-	if user.Token != "" && user.IsLoggedIn {
-		if user.LastAuthAt.Before(user.MaxSessionAt) || user.LastAuthAt.Before(user.TimeoutAt) {
-			user.LastAuthAt = time.Now()
-			return USER_OK
-		}
-		user.Logout()
-		return USER_EXPIRED
+func (user *User) CheckExpirationDates() error {
+	fmt.Println("\nCHECK EXPIRATION DATES")
+	fmt.Println(user)
+
+	if user.LastAuthAt.Before(user.MaxSessionAt) && user.LastAuthAt.Before(user.TimeoutAt) {
+		user.LastAuthAt = time.Now()
+		user.TimeoutAt = user.LastAuthAt.Add(userControl.TimeSinceAuthentication)
+		return nil
 	}
 	user.Logout()
-	return USER_INVALID
+	return ErrSessionExpired
+
 }
 
 // Authenticate checks the user's token to see if it is valid. This is a post-login process
 // The user's record should be saved after this operation
-func (user *User) Authenticate(token string) UserStatusCode {
-	fmt.Println( user.IsLoggedIn )
-	if token != "" && user.IsLoggedIn {
-		if checkToken, err := user.GetTokenWithExpiration(); err == USER_OK && token == checkToken {
-			fmt.Println("Authenticated")
-			return USER_OK
-		}else{ fmt.Println( err );}
-
+func (user *User) Authenticate(token string) error {
+	if token != "" && user.IsLoggedIn && token == user.Token {
+		return user.CheckExpirationDates()
 	}
-	return USER_INVALID
+	return ErrSessionExpired
 }
 
 // Login will authenticate the user and create the tokens required later
-func (user *User) Login(password string) (UserStatusCode, error) {
+func (user *User) Login(password string) error{
 
 	now := time.Now() // Get time marker all the times
 
-	if status := user.CheckPassword(password); status != USER_OK {
+	if err := user.CheckPassword(password); err != nil {
 		user.LastFailedAt = now // Save failure date/time
 		user.IsLoggedIn = false // Mark as not logged in
 		user.Token = ""         // Clear the token
 		user.FailCount++        // Increment failure count
-		return status, errors.New("Invalid login/password")
-	}
-	pwd := encryption.GetDriver().EncryptPassword(password, user.Salt) // Encrypt password
-
-	if pwd != user.Password { // Password differ?
-		user.LastFailedAt = now // Save failure date/time
-		user.IsLoggedIn = false // Mark as not logged in
-		user.Token = ""         // Clear the token
-		user.FailCount++        // Increment failure count
-		return USER_INVALID, errors.New("Invalid login/password for user")
+		return err
 	}
 
 	user.Token = user.CreateToken() // Give him a ticket
@@ -294,10 +248,11 @@ func (user *User) Login(password string) (UserStatusCode, error) {
 	user.MaxSessionAt = now.Add(userControl.MaximumSessionDuration)
 	user.TimeoutAt = now.Add(userControl.TimeSinceAuthentication)
 	user.LastAuthAt = now
+	user.LoginAt = now
 	user.IsLoggedIn = true
 	user.FailCount = 0
 
-	return USER_OK, nil
+	return nil
 }
 
 // Logout will mark the record as 'logged out' and the user will be removed from the system
@@ -308,27 +263,45 @@ func (user *User) Logout() {
 }
 
 // ChangePassword to the new password. The user must be logged in for this
-func (user *User) ChangePassword(token , oldPassword, newPassword string) UserStatusCode {
-	if user.Authenticate(token) == USER_OK {
+func (user *User) ChangePassword(oldPassword, newPassword string) error {
+	if user.Authenticate(user.Token) == nil {
 		t := encryption.GetDriver()
 		if t.EncryptPassword(oldPassword, user.Salt) == user.Password {
-			if check := user.CheckNewPassword(newPassword); check != USER_OK {
-				return check
+			if err := user.CheckNewPassword(newPassword); err != nil {
+				return err
 			}
 			user.Password = t.EncryptPassword(newPassword, user.Salt)
-			return USER_OK
+			return nil
 		}
-	}else{
-		fmt.Println("\n******  Authenticate failed")
 	}
-	return USER_INVALID
+	return ErrInvalidPasswordOrUser
 }
 
-func (user *User) CheckPassword(testPassword string) UserStatusCode {
+func (user *User) CheckPassword(testPassword string) error {
 	pwd := encryption.GetDriver().EncryptPassword(testPassword, user.Salt) // Encrypt password
 
-	if pwd != user.GetPassword() {
-		return USER_INVALID
+	if pwd != user.Password {
+		return ErrInvalidPasswordOrUser
 	}
-	return USER_OK
+	return nil
+}
+
+// This is used when a user loses their password. They request a password reset
+// based upon their email address. If they are logged in, they will not be able to
+// reset the password ( 'User still logged in'). When they are NOT logged in, a token
+// is generated and set. The client program later calls this with the email address
+// AND the token. When this is confirmed, the password is then set to the value of the
+// token and the user can go ahead and login as normal.
+func (user *User) GenerateLostPassword() (newPassword string, err error) {
+
+	return
+}
+
+func (user *User) ConfirmLostPassword(lostPwdToken string) (err error) {
+	if lostPwdToken == user.Token {
+		user.Password = encryption.GetDriver().EncryptPassword(lostPwdToken, user.Salt)
+	} else {
+		err = errors.New(`Invalid password or user id`)
+	}
+	return
 }

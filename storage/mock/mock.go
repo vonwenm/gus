@@ -4,6 +4,7 @@
 package mock
 
 import (
+	"github.com/cgentry/gus/ecode"
 	"github.com/cgentry/gus/record"
 	"github.com/cgentry/gus/storage"
 	"strings"
@@ -58,7 +59,7 @@ func (t *MockConn) RegisterUser(u *record.User) error {
 	t.routineCalled(`RegisterUser`)
 	err := t.lookupError(`RegisterUser`)
 	if err != nil {
-		return storage.NewStorageError(err.Error(), 500)
+		return ecode.NewGeneralError(err.Error(), 500)
 	}
 	return nil
 }
@@ -187,6 +188,6 @@ func (t *MockConn) Reset() {
 	t.callList = make(map[string]int)
 }
 
-func ( t * MockConn)Release() error {
+func (t *MockConn) Release() error {
 	return nil
 }

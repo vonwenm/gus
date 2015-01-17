@@ -26,7 +26,7 @@ func StrToTime(t string) time.Time {
 		return val
 	}
 
-	return time.Unix(0, 0)
+	return time.Time{}
 
 }
 

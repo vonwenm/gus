@@ -10,7 +10,8 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 	"os"
 	"testing"
-	//"fmt"
+	. "github.com/cgentry/gus/ecode"
+	"time"
 )
 
 const STORE_LOCAL = "/tmp/test_store.sqlite3"
@@ -22,6 +23,7 @@ func clearSqliteTest() {
 }
 
 func TestSimpleRegisterCycle(t *testing.T) {
+	var compareTime1, compareTime2 time.Time
 	clearSqliteTest()
 	db, err := storage.Open(STORAGE_IDENTITY, STORE_LOCAL)
 	db.CreateStore()
@@ -38,48 +40,61 @@ func TestSimpleRegisterCycle(t *testing.T) {
 		user.SetLoginName("justlogin")
 
 		serr := db.RegisterUser(user) // Register new user
-		So(serr.Error(), ShouldBeBlank)
+		So(serr,ShouldBeNil)
 
 		// FETCH BY EMAIL
-		user2, err := db.FetchUserByGuid(user.GetGuid())
+		user2, err := db.FetchUserByGuid(user.Guid)
 		So(err, ShouldBeNil)
-		So(user2.GetDomain(), ShouldEqual, user.GetDomain())
-		So(user2.GetToken(), ShouldEqual, user.GetToken())
-		So(user2.GetName(), ShouldEqual, user.GetName())
+		So(user2.Domain, ShouldEqual, user.Domain)
+		So(user2.Token, ShouldEqual, user.Token)
+		So(user2.FullName, ShouldEqual, user.FullName)
 
 		// Fetch by TOKEN
 		user3, err := db.FetchUserByToken("TestToken")
 		So(err, ShouldBeNil)
-		So(user3.GetDomain(), ShouldEqual, user.GetDomain())
-		So(user3.GetToken(), ShouldEqual, user.GetToken())
-		So(user3.GetName(), ShouldEqual, user.GetName())
+		So(user3.Domain, ShouldEqual, user.Domain)
+		So(user3.Token, ShouldEqual, user.Token)
+		So(user3.FullName, ShouldEqual, user.FullName)
 
 		// FETCH BY EMAIL
 		user4, err := db.FetchUserByEmail(`et@home.com`)
 		So(err, ShouldBeNil)
-		So(user4.GetDomain(), ShouldEqual, user.GetDomain())
-		So(user4.GetToken(), ShouldEqual, user.GetToken())
-		So(user4.GetName(), ShouldEqual, user.GetName())
+		So(user4.Domain, ShouldEqual, user.Domain)
+		So(user4.Token, ShouldEqual, user.Token)
+		So(user4.FullName, ShouldEqual, user.FullName)
 
 		// FETCH BY EMAIL
 		user5, err := db.FetchUserByLogin(`justlogin`)
 		So(err, ShouldBeNil)
-		So(user5.GetDomain(), ShouldEqual, user.GetDomain())
-		So(user5.GetToken(), ShouldEqual, user.GetToken())
-		So(user5.GetName(), ShouldEqual, user.GetName())
+		So(user5.Domain, ShouldEqual, user.Domain)
+		So(user5.Token, ShouldEqual, user.Token)
+		So(user5.FullName, ShouldEqual, user.FullName)
 
 		// By default, a registered user is NOT logged in...
+		compareTime1 = user.LoginAt
+		compareTime2= user.UpdatedAt
 		err = db.UserLogin(user)
-		So(err.Error(), ShouldBeBlank)
-		user, err = db.FetchUserByGuid(user.GetGuid())
+		So(err, ShouldBeNil )
+		user, err = db.FetchUserByGuid(user.Guid)
+		So( user.IsLoggedIn, ShouldBeTrue)
+		So(user.LoginAt.Equal(compareTime1), ShouldBeFalse)
+		So(user.UpdatedAt.Equal(compareTime2), ShouldBeFalse)
+		So(user.LoginAt.Equal(user.UpdatedAt), ShouldBeTrue)
+
+		compareTime1 = user.LogoutAt
+		compareTime2= user.UpdatedAt
 
 		err = db.UserLogout(user)
-		So(err.Error(), ShouldBeBlank )
+		So(err, ShouldBeNil)
+		So(user.IsLoggedIn, ShouldBeFalse)
+		So(user.LogoutAt.Equal(compareTime1), ShouldBeFalse)
+		So(user.UpdatedAt.Equal(compareTime2), ShouldBeFalse)
+		So(user.LogoutAt.Equal(user.UpdatedAt), ShouldBeTrue)
 		err = db.UserLogout(user)
-		So(err.Error(), ShouldEqual, storage.ErrUserNotLoggedIn.Error())
+		So(err, ShouldNotBeNil )
+		So(err.Error(), ShouldEqual, ErrUserNotLoggedIn.Error())
 
 		db.Close()
 	})
 
 }
-

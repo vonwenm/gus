@@ -6,30 +6,31 @@ package sqlite
 import (
 	"fmt"
 	"github.com/cgentry/gus/record"
-	"github.com/cgentry/gus/storage"
 	"strings"
+	. "github.com/cgentry/gus/ecode"
+	"net/http"
 )
 
 func (t *SqliteConn) fetchUserByField(field, val string) (*record.User, error) {
 	field = strings.TrimSpace(field)
 	if field == `` {
-		return nil, storage.ErrEmptyFieldForLookup
+		return nil, ErrEmptyFieldForLookup
 	}
 	if t.db == nil {
-		return nil, storage.ErrNotOpen
+		return nil, ErrNotOpen
 	}
 	cmd := fmt.Sprintf(`SELECT * FROM User WHERE %s = ?`, field)
 	rows, err := t.db.Query(cmd, val)
 	if err != nil {
-		return nil, err
+		return nil, NewGeneralFromError(err, http.StatusInternalServerError)
 	}
 	defer rows.Close()
 
 	users := mapColumnsToUser(rows)
 	if len(users) == 0 {
-		return nil, storage.ErrUserNotFound
+		return nil, ErrUserNotFound
 	}
-	return users[0], err
+	return users[0], nil
 
 }
 

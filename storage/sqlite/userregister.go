@@ -3,8 +3,8 @@ package sqlite
 import (
 	"database/sql"
 	"fmt"
+	. "github.com/cgentry/gus/ecode"
 	"github.com/cgentry/gus/record"
-	"github.com/cgentry/gus/storage"
 	"net/http"
 	"strconv"
 	"strings"
@@ -20,9 +20,9 @@ func (t *SqliteConn) RegisterUser(user *record.User) error {
 }
 
 // This is the local function for testing purposes.
-func registerUser(db *sql.DB, user *record.User) *storage.StorageError {
+func registerUser(db *sql.DB, user *record.User) error {
 
-	if err := checkUserExists(db, user); err != storage.ErrUserNotFound {
+	if err := checkUserExists(db, user); err != ErrUserNotFound {
 		return err
 	}
 
@@ -61,19 +61,19 @@ func registerUser(db *sql.DB, user *record.User) *storage.StorageError {
 	stmt, err := db.Prepare(cmd_user_register)
 
 	if err != nil {
-		return storage.NewStorageFromError(err, http.StatusInternalServerError)
+		return NewGeneralFromError(err, http.StatusInternalServerError)
 	}
 	now := time.Now()
 	fmtTime := now.Format(record.USER_TIME_STR)
 	result, err := stmt.Exec(
-		user.GetDomain(),
-		user.GetEmail(),
-		user.GetFullName(),
-		user.GetGuid(),
-		user.GetLoginName(),
-		user.GetPassword(),
-		user.GetSalt(),
-		user.GetToken(),
+		user.Domain,
+		user.Email,
+		user.FullName,
+		user.Guid,
+		user.LoginName,
+		user.Password,
+		user.Salt,
+		user.Token,
 		strconv.FormatBool(user.IsActive),
 		strconv.FormatBool(user.IsLoggedIn),
 		strconv.FormatBool(user.IsSystem),
@@ -88,20 +88,22 @@ func registerUser(db *sql.DB, user *record.User) *storage.StorageError {
 		fmtTime, /*Updated_DT*/
 	)
 	if err != nil {
-		return storage.NewStorageFromError(err, http.StatusInternalServerError)
+		return NewGeneralFromError(err, http.StatusInternalServerError)
 	}
 
 	if count, err := result.RowsAffected(); err != nil {
-		return storage.NewStorageFromError(err, http.StatusInternalServerError)
+		return NewGeneralFromError(err, http.StatusInternalServerError)
 	} else {
 		if count == 0 {
-			return storage.ErrUserNotRegistered
+			return ErrUserNotRegistered
 		}
 	}
-	return storage.ErrStatusOk
+	user.SetCreatedAt(now)
+	user.SetUpdatedAt(now)
+	return nil
 }
 
-func checkUserExists(db *sql.DB, user *record.User) *storage.StorageError {
+func checkUserExists(db *sql.DB, user *record.User) error {
 	var guid, domain, email, login sql.NullString
 
 	sql := `SELECT Guid, Domain , Email, LoginName
@@ -112,26 +114,26 @@ func checkUserExists(db *sql.DB, user *record.User) *storage.StorageError {
 	if err == nil {
 
 		row := stmt.QueryRow(
-			user.GetGuid(),
-			user.GetDomain(),
-			user.GetEmail(),
-			user.GetLoginName())
+			user.Guid,
+			user.Domain,
+			user.Email,
+			user.LoginName)
 
 		err := row.Scan(&guid, &domain, &email, &login)
 
 		if err == nil {
-			if guid.Valid && guid.String == user.GetGuid() {
-				return storage.ErrDuplicateGuid
+			if guid.Valid && guid.String == user.Guid {
+				return ErrDuplicateGuid
 			}
-			if email.Valid && email.String == user.GetEmail() {
-				return storage.ErrDuplicateEmail
+			if email.Valid && email.String == user.Email {
+				return ErrDuplicateEmail
 			}
-			if login.Valid && login.String == user.GetLoginName() {
-				return storage.ErrDuplicateLogin
+			if login.Valid && login.String == user.LoginName {
+				return ErrDuplicateLogin
 			}
 		}
-		return storage.ErrUserNotFound
+		return ErrUserNotFound
 	}
 
-	return storage.ErrInternalDatabase
+	return ErrInternalDatabase
 }
