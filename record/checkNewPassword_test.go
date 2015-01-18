@@ -1,8 +1,8 @@
 package record
 
 import (
-	. "github.com/smartystreets/goconvey/convey"
 	. "github.com/cgentry/gus/ecode"
+	. "github.com/smartystreets/goconvey/convey"
 	"testing"
 )
 

@@ -1,15 +1,15 @@
 package service
 
 import (
-	"net/http"
-	//"github.com/cgentry/gus/storage"
 	"encoding/json"
 	"errors"
+	"github.com/cgentry/gofig"
 	"github.com/cgentry/gus/record"
 	"github.com/cgentry/gus/record/request"
 	"github.com/cgentry/gus/record/response"
 	"github.com/cgentry/gus/storage"
 	"io/ioutil"
+	"net/http"
 )
 
 func httpGetBody(r *http.Request) (requestPackage *record.Package, requestHead request.Head, err error) {
@@ -59,4 +59,20 @@ func httpResponseWrite(w http.ResponseWriter, responsePackage *record.Package) {
 	httpResponseBody, _ := json.Marshal(responsePackage)
 	w.Write(httpResponseBody)
 	http.Error(w, responseHead.Message, responseHead.Code)
+}
+
+func httpOpenStore(c *gofig.Configuration, w http.ResponseWriter) (ds *storage.Store, err error) {
+	var driverName, driverDsn string
+
+	if driverName, err = c.GetString(`store`, `driver`); err == nil {
+		if driverDsn, err = c.GetString(`store`, `dsn`); err == nil {
+			options := c.GetStringWithDefault(`store`, `options`, ``)
+			ds, err = storage.Open(driverName, driverDsn, options)
+		}
+	}
+	if err != nil {
+		httpErrorWrite(w, 500, err.Error())
+		return
+	}
+	return
 }

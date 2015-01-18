@@ -7,9 +7,9 @@ import (
 	"github.com/cgentry/gus/record"
 	"github.com/cgentry/gus/record/request"
 	"github.com/cgentry/gus/record/response"
+	"github.com/cgentry/gus/storage"
 	"net/http"
 	"strings"
-	"fmt"
 )
 
 type Options map[string]bool
@@ -69,7 +69,7 @@ func ServiceRegister(ctrl *ServiceControl, caller *record.User, requestPackage *
 		return serviceReturnResponse(caller, &responseHead, "", http.StatusBadRequest, err.Error())
 	}
 
-	if err = ctrl.DataStore.RegisterUser(newUser); err != nil {
+	if err = ctrl.DataStore.UserInsert(newUser); err != nil {
 		return serviceReturnGeneralError(caller, &responseHead, "", err)
 	}
 	ctrl.DataStore.Release()
@@ -105,7 +105,7 @@ func ServiceLogin(ctrl *ServiceControl, caller *record.User, requestPackage *rec
 	}
 
 	// Find the user - we have to use the LOGIN name for this
-	user, err := ctrl.DataStore.FetchUserByLogin(login.Login)
+	user, err := ctrl.DataStore.UserFetch(caller.Domain, storage.FIELD_LOGIN, login.Login)
 	if err != nil {
 		return serviceReturnGeneralError(caller, &responseHead, "", err)
 	}
@@ -113,11 +113,11 @@ func ServiceLogin(ctrl *ServiceControl, caller *record.User, requestPackage *rec
 	defer ctrl.DataStore.Release()
 	// Process the login request. This checks the password that was passed
 	if err = user.Login(login.Password); err != nil {
-		ctrl.DataStore.UserUpdate(user)		// Try and save the error counters
-		return serviceReturnGeneralError(caller, &responseHead, "", err )
+		ctrl.DataStore.UserUpdate(user) // Try and save the error counters
+		return serviceReturnGeneralError(caller, &responseHead, "", err)
 	}
 
-	if err= ctrl.DataStore.UserLogin(user);err != nil {
+	if err = ctrl.DataStore.UserUpdate(user); err != nil {
 		// If a user failed to login
 		return serviceReturnGeneralError(caller, &responseHead, "", err)
 	}
@@ -132,7 +132,8 @@ func ServiceLogin(ctrl *ServiceControl, caller *record.User, requestPackage *rec
 }
 
 // ServiceLogout will logout the user that is currently logged in. Only the token is required for this operation.
-// If the user is not logged in then an error will be returned.
+// If the user is not logged in then an error will be returned. If a user isn't found, a 'NotLoggedIn'
+// is returned instead. This is a more precise message for a logout condition
 func ServiceLogout(ctrl *ServiceControl, caller *record.User, requestPackage *record.Package) *record.Package {
 	var err error
 
@@ -150,20 +151,27 @@ func ServiceLogout(ctrl *ServiceControl, caller *record.User, requestPackage *re
 	}
 
 	if err = requestHead.Check(); err != nil {
-		return serviceReturnGeneralError(caller, &responseHead, "", err )
+		return serviceReturnGeneralError(caller, &responseHead, "", err)
 	}
 
-	// Find the user - we have to use the LOGIN name for this
-	user, err := ctrl.DataStore.FetchUserByToken(logout.Token)
+	// Find the user - we have to use the TOKEN name for this
+	user, err := ctrl.DataStore.UserFetch(caller.Domain, storage.FIELD_TOKEN, logout.Token)
 	if err != nil {
+		if err == ecode.ErrUserNotFound {
+			return serviceReturnGeneralError(caller, &responseHead, "", ecode.ErrUserNotLoggedIn)
+		}
+
 		return serviceReturnGeneralError(caller, &responseHead, "", err)
 	}
 	defer ctrl.DataStore.Release()
 
-	if serr := ctrl.DataStore.UserLogout(user); serr != ecode.ErrStatusOk {
-		return serviceReturnGeneralError(caller, &responseHead, "", serr)
+	if err = user.Logout(); err != nil {
+		return serviceReturnGeneralError(caller, &responseHead, "", err)
 	}
 
+	if err = ctrl.DataStore.UserUpdate(user); err != nil {
+		return serviceReturnGeneralError(caller, &responseHead, "", err)
+	}
 	return serviceReturnGeneralError(caller, &responseHead, "", ecode.ErrStatusOk)
 }
 
@@ -179,7 +187,6 @@ func ServiceLogout(ctrl *ServiceControl, caller *record.User, requestPackage *re
 func ServiceUpdate(ctrl *ServiceControl, caller *record.User, requestPackage *record.Package, options Options) *record.Package {
 	var err error
 	var updatedFields []string
-fmt.Println( "****** SERVICE UPDATE*********")
 	update := request.NewUpdate()
 	responseHead := response.NewHead()
 
@@ -208,7 +215,7 @@ fmt.Println( "****** SERVICE UPDATE*********")
 	}
 
 	// Find the user via Token
-	user, err := ctrl.DataStore.FetchUserByToken(update.Token)
+	user, err := ctrl.DataStore.UserFetch(caller.Domain, storage.FIELD_TOKEN, update.Token)
 	if err != nil {
 		return serviceReturnGeneralError(caller, &responseHead, "", err)
 	}
@@ -238,25 +245,17 @@ fmt.Println( "****** SERVICE UPDATE*********")
 		}
 		updatedFields = append(updatedFields, "Password")
 	}
-	fmt.Println("\n**** UPDATED FIELDS ****")
-	fmt.Println( updatedFields)
 	if len(updatedFields) == 0 {
 		return serviceReturnResponse(caller, &responseHead, "", http.StatusBadRequest, "No fields included for update")
 	}
 	if err = ctrl.DataStore.UserUpdate(user); err != nil {
-		fmt.Println( 252 )
 		return serviceReturnGeneralError(caller, &responseHead, "", err)
 	}
-	user, err = ctrl.DataStore.FetchUserByToken(update.Token)
-	if err != nil {
-		return serviceReturnGeneralError(caller, &responseHead, "", err)
-	}
-fmt.Println( 258 )
+
 	returnUserJson, err := json.Marshal(record.NewReturnFromUser(user))
 	if err != nil {
 		return serviceReturnResponse(caller, &responseHead, "", http.StatusInternalServerError, err.Error())
 	}
-	fmt.Println( 263 )
 	return serviceReturnResponse(caller, &responseHead, string(returnUserJson), ecode.ErrStatusOk.Code(), "Fields updated: "+strings.Join(updatedFields, `, `))
 
 }
@@ -280,7 +279,7 @@ func serviceReturnResponse(caller *record.User, responseHead *response.Head, res
 // This will pack up all the data for a simple response that can be sent using http/rpc/queue
 func serviceReturnGeneralError(caller *record.User, responseHead *response.Head, responseBody string, err error) *record.Package {
 	if err == nil {
-		return serviceReturnGeneralError( caller, responseHead, responseBody, ecode.ErrStatusOk)
+		return serviceReturnGeneralError(caller, responseHead, responseBody, ecode.ErrStatusOk)
 	}
 	var code int
 	if serr, ok := err.(*ecode.GeneralError); ok {

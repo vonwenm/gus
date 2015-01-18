@@ -1,17 +1,22 @@
 package service
 
+// This is an interface between the Service layer and the HTTP service. It allows
+// Service to be more general and to be called by other interfaces (e.g. RPC)
 import (
 	"github.com/cgentry/gofig"
-	"github.com/cgentry/gus/storage"
-	"github.com/cgentry/gus/storage/mock"
 	"net/http"
 )
 
 func httpRegister(c *gofig.Configuration, w http.ResponseWriter, r *http.Request) {
+	var err error
 
-	mock.RegisterMockStore()
 	ctrl := NewServiceControl()
-	ctrl.DataStore, _ = storage.Open("mock", ":memory:")
+
+	if ctrl.DataStore, err = httpOpenStore(c, w); err != nil {
+		return
+	}
+	defer ctrl.DataStore.Reset()   // If it holds state...clear it
+	defer ctrl.DataStore.Release() // Make sure to release any locks
 
 	requestPackage, requestHead, err := httpGetBody(r)
 	if err != nil {

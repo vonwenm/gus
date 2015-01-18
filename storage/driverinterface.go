@@ -8,23 +8,15 @@ import (
 // data. The back-storage can be a flat file, database or document store.
 // The interfaces specify NO sql methods and flatten out operations
 type Driver interface {
-	Open(connect string) (Conn, error)
+	Open(connect string, extraDriverOptions string) (Conn, error)
 }
 
 // This is the minimum call set that every driver is required to implement
 type Conn interface {
-	RegisterUser(user *record.User) error
-
-	UserLogin(user *record.User) error
-	UserAuthenticated(user *record.User) error
-	UserLogout(user *record.User) error
-
 	UserUpdate(user *record.User) error
+	UserInsert(user *record.User) error
 
-	FetchUserByGuid(guid string) (*record.User, error)
-	FetchUserByToken(token string) (*record.User, error)
-	FetchUserByEmail(email string) (*record.User, error)
-	FetchUserByLogin(loginName string) (*record.User, error)
+	UserFetch(domain, key, value string) (*record.User, error)
 }
 
 // Option Storge Creation interface

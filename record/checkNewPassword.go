@@ -5,8 +5,8 @@ package record
 //
 
 import (
-	"strings"
 	. "github.com/cgentry/gus/ecode"
+	"strings"
 )
 
 const (

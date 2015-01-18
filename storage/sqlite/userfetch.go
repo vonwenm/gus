@@ -5,13 +5,20 @@ package sqlite
 
 import (
 	"fmt"
-	"github.com/cgentry/gus/record"
-	"strings"
 	. "github.com/cgentry/gus/ecode"
+	"github.com/cgentry/gus/record"
+	"github.com/cgentry/gus/storage"
 	"net/http"
+	"strings"
 )
 
-func (t *SqliteConn) fetchUserByField(field, val string) (*record.User, error) {
+func (t *SqliteConn) UserFetch(domain, field, val string) (*record.User, error) {
+	if domain == storage.MATCH_ANY_DOMAIN {
+		return t.fetchUserByFieldAny(field, val)
+	}
+	return t.fetchUserByField(domain, field, val)
+}
+func (t *SqliteConn) fetchUserByField(domain, field, val string) (*record.User, error) {
 	field = strings.TrimSpace(field)
 	if field == `` {
 		return nil, ErrEmptyFieldForLookup
@@ -19,8 +26,15 @@ func (t *SqliteConn) fetchUserByField(field, val string) (*record.User, error) {
 	if t.db == nil {
 		return nil, ErrNotOpen
 	}
-	cmd := fmt.Sprintf(`SELECT * FROM User WHERE %s = ?`, field)
-	rows, err := t.db.Query(cmd, val)
+	cmd := fmt.Sprintf(`SELECT *
+			 FROM %s
+			WHERE %s = ?
+			  AND %s = ?`,
+		record.USER_STORE_NAME,
+		FIELD_DOMAIN,
+		field)
+
+	rows, err := t.db.Query(cmd, domain, val)
 	if err != nil {
 		return nil, NewGeneralFromError(err, http.StatusInternalServerError)
 	}
@@ -33,19 +47,30 @@ func (t *SqliteConn) fetchUserByField(field, val string) (*record.User, error) {
 	return users[0], nil
 
 }
+func (t *SqliteConn) fetchUserByFieldAny(field, val string) (*record.User, error) {
+	field = strings.TrimSpace(field)
+	if field == `` {
+		return nil, ErrEmptyFieldForLookup
+	}
+	if t.db == nil {
+		return nil, ErrNotOpen
+	}
+	cmd := fmt.Sprintf(`SELECT *
+			 FROM %s
+			WHERE  %s = ?`,
+		record.USER_STORE_NAME,
+		field)
 
-func (t *SqliteConn) FetchUserByToken(token string) (*record.User, error) {
-	return t.fetchUserByField(FIELD_TOKEN, token)
-}
+	rows, err := t.db.Query(cmd, val)
+	if err != nil {
+		return nil, NewGeneralFromError(err, http.StatusInternalServerError)
+	}
+	defer rows.Close()
 
-func (t *SqliteConn) FetchUserByGuid(guid string) (*record.User, error) {
-	return t.fetchUserByField(FIELD_GUID, guid)
-}
+	users := mapColumnsToUser(rows)
+	if len(users) == 0 {
+		return nil, ErrUserNotFound
+	}
+	return users[0], nil
 
-func (t *SqliteConn) FetchUserByEmail(email string) (*record.User, error) {
-	return t.fetchUserByField(FIELD_EMAIL, email)
-}
-
-func (t *SqliteConn) FetchUserByLogin(value string) (*record.User, error) {
-	return t.fetchUserByField(FIELD_LOGINNAME, value)
 }

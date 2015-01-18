@@ -2,19 +2,29 @@ package storage
 
 import (
 	"fmt"
-	"github.com/cgentry/gus/record"
 	. "github.com/cgentry/gus/ecode"
+	"github.com/cgentry/gus/record"
 )
 
+// These are the names of fields we expect to occur in the database and will
+// pass to database functions when performing UserFetch operations. You may
+// map them in the driver-level routines in order to provide names that are
+// more appropriate to the driver mechanism.
 const (
-	BANK_USER_OK            = iota
-	BANK_USER_NOT_FOUND     = iota
-	BANK_USER_TOKEN_INVALID = iota
-	BANK_USER_DATA_NOTFOUND = iota
+	FIELD_EMAIL = `Email`
+	FIELD_NAME  = `FullName`
+	FIELD_GUID  = `Guid`
+	FIELD_LOGIN = `LoginName`
+	FIELD_TOKEN = `Token`
 )
-
-var driverMap = make(map[string]Driver,2)
 const driver_name = "Storage"
+
+// For domains, you need to handle the MATCH_ANY_DOMAIN as a parameter. This will be a placeholder
+// when there are UNIQUE keys (e.g. GUID and TOKEN)
+const MATCH_ANY_DOMAIN = `*`
+
+// All drivers that are registered are stored here.
+var driverMap = make(map[string]Driver, 2)
 
 // Find the driver by the 'name' and add it into the map so it can be opened.
 // Each driver can only be registered once. To remove all drivers, call
@@ -30,6 +40,7 @@ func Register(name string, driver Driver) error {
 	return nil
 }
 
+// Return a simple string respresentation of the drivers that are registered
 func String() string {
 	rtn := fmt.Sprintf("Length is %d\n", len(driverMap))
 	for key := range driverMap {
@@ -38,8 +49,14 @@ func String() string {
 	return rtn
 }
 
+// Remove all the drivers that have been registered
 func ResetRegister() {
 	driverMap = make(map[string]Driver)
+}
+
+func IsRegistered(name string) bool {
+	_, ok := driverMap[name]
+	return ok
 }
 
 // Store holds the state for any storage driver. It allows you to have
@@ -54,14 +71,9 @@ type Store struct {
 	connection    Conn
 }
 
-func IsRegistered(name string) bool {
-	_, ok := driverMap[name]
-	return ok
-}
-
 // Open a connection to the storage mechanism and return both a storage
 // structure and an error status of the open
-func Open(name string, connect string) (*Store, error) {
+func Open(name string, connect string, extraDriverOptions string) (*Store, error) {
 	s := &Store{
 		name:          name,
 		isOpen:        false,
@@ -70,7 +82,7 @@ func Open(name string, connect string) (*Store, error) {
 	}
 	if driver, ok := driverMap[name]; ok {
 		s.driver = driver
-		s.connection, s.lastError = driver.Open(connect)
+		s.connection, s.lastError = driver.Open(connect, extraDriverOptions)
 	}
 	if s.lastError == nil {
 		s.isOpen = true
@@ -164,38 +176,6 @@ func (s *Store) Ping() error {
 /*
  * Mandatory functions
  */
-func (s *Store) RegisterUser(user *record.User) error {
-	if !s.isOpen {
-		s.lastError = ErrNotOpen
-		return ErrNotOpen
-	}
-	s.lastError = s.connection.RegisterUser(user)
-	return s.lastError
-}
-
-func (s *Store) UserLogin(user *record.User) error {
-	if !s.isOpen {
-		s.lastError = ErrNotOpen
-		return ErrNotOpen
-	}
-	return s.saveLastError(s.connection.UserLogin(user))
-}
-
-func (s *Store) UserAuthenticated(user *record.User) error {
-	if !s.isOpen {
-		s.lastError = ErrNotOpen
-		return ErrNotOpen
-	}
-	return s.saveLastError(s.connection.UserAuthenticated(user))
-}
-
-func (s *Store) UserLogout(user *record.User) error {
-	if !s.isOpen {
-		s.lastError = ErrNotOpen
-		return ErrNotOpen
-	}
-	return s.saveLastError(s.connection.UserLogout(user))
-}
 
 func (s *Store) UserUpdate(user *record.User) error {
 	if !s.isOpen {
@@ -205,43 +185,74 @@ func (s *Store) UserUpdate(user *record.User) error {
 	return s.saveLastError(s.connection.UserUpdate(user))
 }
 
+func (s *Store) UserInsert(user *record.User) error {
+	if !s.isOpen {
+		s.lastError = ErrNotOpen
+		return ErrNotOpen
+	}
+	return s.saveLastError(s.connection.UserInsert(user))
+}
+
+// Fetch a user's record using the domain, a field name and the field value. There will only be one record
+// returned. If you pass MATCH_ANY_DOMAIN as the domain, this will only be valid for a small number of
+// key-types (e.g. enforced unique keys.)
+func (s *Store) UserFetch(domain, lookupKey, lookkupValue string) (*record.User, error) {
+	if !s.isOpen {
+		s.lastError = ErrNotOpen
+		return nil, ErrNotOpen
+	}
+	if domain == MATCH_ANY_DOMAIN {
+		if lookupKey != FIELD_GUID || lookupKey != FIELD_TOKEN {
+			return nil, ErrMatchAnyNotSupported
+		}
+	}
+	rec, err := s.connection.UserFetch(domain, lookupKey, lookkupValue)
+	s.lastError = err
+	return rec, err
+}
+
+/* ------------------------ THE FOLLOWING ARE 'CONVENIENCE' FUNCTIONS ***********************/
+
+// Fetch a user by the GUID. No domains are required as this is the primary (or unique) key
 func (s *Store) FetchUserByGuid(guid string) (*record.User, error) {
 	if !s.isOpen {
 		s.lastError = ErrNotOpen
 		return nil, ErrNotOpen
 	}
-	rec, err := s.connection.FetchUserByGuid(guid)
+	rec, err := s.connection.UserFetch(MATCH_ANY_DOMAIN, FIELD_GUID, guid)
 	s.lastError = err
 	return rec, err
 }
 
+// Fetch a user by the logged-in token. If the user is not logged in, a 'User not found' error is returned.
 func (s *Store) FetchUserByToken(token string) (*record.User, error) {
 	if !s.isOpen {
 		s.lastError = ErrNotOpen
 		return nil, ErrNotOpen
 	}
-	rec, err := s.connection.FetchUserByToken(token)
+	rec, err := s.connection.UserFetch(MATCH_ANY_DOMAIN, FIELD_TOKEN, token)
 	s.lastError = err
 	return rec, err
 }
 
-func (s *Store) FetchUserByEmail(email string) (*record.User, error) {
+// Fetch a user by the email. Emails are not unique, except within a domain.
+func (s *Store) FetchUserByEmail(domain, email string) (*record.User, error) {
 	if !s.isOpen {
 		s.lastError = ErrNotOpen
 		return nil, ErrNotOpen
 	}
-	rec, err := s.connection.FetchUserByEmail(email)
+	rec, err := s.connection.UserFetch(domain, FIELD_EMAIL, email)
 	s.lastError = err
 	return rec, err
 }
 
-// Fetch the user record by the login string. Returns the record if found and an error code
-func (s *Store) FetchUserByLogin(loginName string) (*record.User, error) {
+// Fetch the user record by the login string. Login names are only unique within the domain
+func (s *Store) FetchUserByLogin(domain, loginName string) (*record.User, error) {
 	if !s.isOpen {
 		s.lastError = ErrNotOpen
 		return nil, ErrNotOpen
 	}
-	rec, err := s.connection.FetchUserByLogin(loginName)
+	rec, err := s.connection.UserFetch(domain, FIELD_EMAIL, loginName)
 	s.lastError = err
 	return rec, err
 }

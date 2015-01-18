@@ -57,7 +57,6 @@ func (uc *UserControl) SetTimeout(interval string) (err error) {
 	return err
 }
 
-
 type UserInterface interface {
 	Login(string) error
 	Logout()
@@ -208,12 +207,11 @@ func (user *User) CreateToken() string {
 // CheckExpirationDates will see if the token is valid or expired. If it
 // is expired, the token will be cleared and the proper status will be set
 func (user *User) CheckExpirationDates() error {
-	fmt.Println("\nCHECK EXPIRATION DATES")
-	fmt.Println(user)
 
 	if user.LastAuthAt.Before(user.MaxSessionAt) && user.LastAuthAt.Before(user.TimeoutAt) {
 		user.LastAuthAt = time.Now()
 		user.TimeoutAt = user.LastAuthAt.Add(userControl.TimeSinceAuthentication)
+		user.UpdatedAt = user.LastAuthAt
 		return nil
 	}
 	user.Logout()
@@ -224,16 +222,21 @@ func (user *User) CheckExpirationDates() error {
 // Authenticate checks the user's token to see if it is valid. This is a post-login process
 // The user's record should be saved after this operation
 func (user *User) Authenticate(token string) error {
+	user.UpdatedAt = time.Now()
 	if token != "" && user.IsLoggedIn && token == user.Token {
-		return user.CheckExpirationDates()
+		if err := user.CheckExpirationDates(); err == nil {
+			user.LastAuthAt = user.UpdatedAt
+			return nil
+		}
 	}
 	return ErrSessionExpired
 }
 
 // Login will authenticate the user and create the tokens required later
-func (user *User) Login(password string) error{
+func (user *User) Login(password string) error {
 
 	now := time.Now() // Get time marker all the times
+	user.UpdatedAt = now
 
 	if err := user.CheckPassword(password); err != nil {
 		user.LastFailedAt = now // Save failure date/time
@@ -247,19 +250,26 @@ func (user *User) Login(password string) error{
 
 	user.MaxSessionAt = now.Add(userControl.MaximumSessionDuration)
 	user.TimeoutAt = now.Add(userControl.TimeSinceAuthentication)
+	user.IsLoggedIn = true
 	user.LastAuthAt = now
 	user.LoginAt = now
-	user.IsLoggedIn = true
+
 	user.FailCount = 0
 
 	return nil
 }
 
 // Logout will mark the record as 'logged out' and the user will be removed from the system
-func (user *User) Logout() {
+func (user *User) Logout() error {
+	if !user.IsLoggedIn {
+		return ErrUserNotLoggedIn
+	}
 	user.Token = ""
 	user.IsLoggedIn = false
 	user.LogoutAt = time.Now()
+	user.UpdatedAt = user.LogoutAt
+	user.IsLoggedIn = false
+	return nil
 }
 
 // ChangePassword to the new password. The user must be logged in for this
@@ -271,6 +281,7 @@ func (user *User) ChangePassword(oldPassword, newPassword string) error {
 				return err
 			}
 			user.Password = t.EncryptPassword(newPassword, user.Salt)
+			user.UpdatedAt = time.Now()
 			return nil
 		}
 	}

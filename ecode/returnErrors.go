@@ -38,14 +38,14 @@ func NewGeneralFromError(e error, code int) ErrorCoder {
 func (s *GeneralError) Error() string { return s.errorString }
 func (s *GeneralError) Code() int     { return s.errorCode }
 
-var ErrHeadNoDomain = NewGeneralError("Head: No domain",http.StatusBadRequest)
-var ErrHeadNoId = NewGeneralError("Head: No Id",http.StatusBadRequest)
-var ErrHeadNoTimestamp = NewGeneralError("Head: No timestamp set",http.StatusBadRequest)
-var ErrHeadFuture = NewGeneralError("Head: Request in the future",http.StatusBadRequest)
-var ErrHeadExpired = NewGeneralError("Head: Request expired",http.StatusBadRequest)
+var ErrHeadNoDomain = NewGeneralError("Head: No domain", http.StatusBadRequest)
+var ErrHeadNoId = NewGeneralError("Head: No Id", http.StatusBadRequest)
+var ErrHeadNoTimestamp = NewGeneralError("Head: No timestamp set", http.StatusBadRequest)
+var ErrHeadFuture = NewGeneralError("Head: Request in the future", http.StatusBadRequest)
+var ErrHeadExpired = NewGeneralError("Head: Request expired", http.StatusBadRequest)
 var ErrSessionExpired = NewGeneralError("User session expired", http.StatusUnauthorized)
 var ErrPasswordTooShort = NewGeneralError("Password is too short", http.StatusBadRequest)
-var ErrPasswordTooSimple= NewGeneralError("Password is too simple", http.StatusBadRequest)
+var ErrPasswordTooSimple = NewGeneralError("Password is too simple", http.StatusBadRequest)
 
 // Storage Errors
 var ErrInvalidHeader = NewGeneralError("Invalid header in request", http.StatusBadRequest)
@@ -53,7 +53,7 @@ var ErrInvalidChecksum = NewGeneralError("Invalid Checksum", http.StatusBadReque
 var ErrInvalidBody = NewGeneralError("Invalid body (mistmatch request?)", http.StatusBadRequest)
 var ErrEmptyFieldForLookup = NewGeneralError("Lookup field is empty", http.StatusBadRequest)
 var ErrInvalidPasswordOrUser = NewGeneralError("Invalid password or user id", http.StatusBadRequest)
-
+var ErrMatchAnyNotSupported = NewGeneralError("Storage driver does not support 'MATCH_ANY_DOMAIN' for fetch operation", http.StatusInternalServerError)
 var ErrNoDriverFound = NewGeneralError("No storage driver found", http.StatusInternalServerError)
 var ErrNoSupport = NewGeneralError("Storage driver does not support function call", http.StatusNotImplemented)
 var ErrNotOpen = NewGeneralError("Storage driver is not open", http.StatusInternalServerError)

@@ -1,20 +1,20 @@
 package service
 
 import (
+	"encoding/json"
 	"github.com/cgentry/gus/ecode"
+	_ "github.com/cgentry/gus/encryption/drivers/plaintext"
 	"github.com/cgentry/gus/record"
 	"github.com/cgentry/gus/record/request"
 	"github.com/cgentry/gus/record/response"
 	"github.com/cgentry/gus/storage"
-	"github.com/cgentry/gus/storage/mock"
-	. "github.com/smartystreets/goconvey/convey"
-	"testing"
-
-	"encoding/json"
-	"fmt"
-	_ "github.com/cgentry/gus/encryption/drivers/plaintext"
 	_ "github.com/cgentry/gus/storage/sqlite"
+	. "github.com/smartystreets/goconvey/convey"
+	"os"
+	"testing"
 )
+
+const t_service_test_db = `/tmp/test_service.sqlite`
 
 func generateCaller() *record.User {
 	u := record.NewTestUser()
@@ -22,11 +22,17 @@ func generateCaller() *record.User {
 	return u
 
 }
+func destroyStore() {
+	if t_service_test_db != `:memory:` {
+		os.Remove(t_service_test_db)
+	}
+}
 
 func TestBadRegister(t *testing.T) {
 	caller := generateCaller()
 	ctrl := NewServiceControl()
-	ctrl.DataStore, _ = storage.Open("sqlite", ":memory:")
+	ctrl.DataStore, _ = storage.Open("sqlite", t_service_test_db, ``)
+	defer destroyStore()
 	defer ctrl.DataStore.Close()
 	ctrl.DataStore.CreateStore()
 
@@ -63,20 +69,20 @@ func TestBadRegister(t *testing.T) {
 }
 func TestSimpleRegister(t *testing.T) {
 	var err error
-	mock.RegisterMockStore()
 	caller := generateCaller()
 	ctrl := NewServiceControl()
-	ctrl.DataStore, err = storage.Open("sqlite", ":memory:")
+	ctrl.DataStore, err = storage.Open("sqlite", t_service_test_db, ``)
 	if err != nil {
-		t.Error("Culd not open database: " + err.Error())
+		t.Error("Could not open database: " + err.Error())
 	}
+	defer destroyStore()
 	defer ctrl.DataStore.Close()
 	ctrl.DataStore.CreateStore()
 
 	Convey("Send Simple register request in", t, func() {
 		reg := request.NewRegister()
 		reg.Login = "*Login"
-		reg.Name = "*FullName"
+		reg.Name = "*TestSimpleRegister"
 		reg.Email = "johndoe@golang.go"
 		reg.Password = "12345678abcdefg"
 
@@ -91,10 +97,7 @@ func TestSimpleRegister(t *testing.T) {
 
 		So(p.GetSignature(), ShouldNotEqual, "")
 
-		fmt.Println("Call serviceregister")
 		pack := ServiceRegister(ctrl, caller, p)
-		fmt.Println("\nReturn serviceregister\n")
-		fmt.Println(pack)
 
 		rtnHead := pack.Head.(*response.Head)
 		So(rtnHead.Message, ShouldBeBlank)
@@ -109,8 +112,6 @@ func TestSimpleRegister(t *testing.T) {
 
 		// DUPLICATE EMAIL ERROR
 		pack = ServiceRegister(ctrl, caller, p)
-		fmt.Println("\nReturn bad:\n")
-		fmt.Println(pack)
 
 		rtnHead = pack.Head.(*response.Head)
 		So(rtnHead.Message, ShouldEqual, ecode.ErrDuplicateEmail.Error())
@@ -144,12 +145,13 @@ func TestSimpleRegister(t *testing.T) {
 		err := json.Unmarshal([]byte(pack.Body), &userRtn)
 		So(err, ShouldBeNil)
 		So(userRtn.LoginName, ShouldEqual, reqLogin.Login)
-		So(userRtn.FullName, ShouldEqual, `*FullName`)
+		So(userRtn.FullName, ShouldEqual, `*TestSimpleRegister`)
 		So(userRtn.Email, ShouldEqual, `johndoe@golang.go`)
 
 		reqLogout := request.NewLogout()
 		reqLogout.Token = userRtn.Token
 		p.SetBody(reqLogout)
+
 		pack = ServiceLogout(ctrl, caller, p)
 
 		rtnHead = pack.Head.(*response.Head)
@@ -183,7 +185,6 @@ func TestSimpleRegister(t *testing.T) {
 		So(p.GetSignature(), ShouldNotEqual, "")
 
 		pack := ServiceLogin(ctrl, caller, p)
-		fmt.Println(pack)
 		rtnHead := pack.Head.(*response.Head)
 		So(rtnHead.Message, ShouldNotBeBlank)
 		So(rtnHead.Message, ShouldEqual, ecode.ErrUserNotFound.Error())
@@ -234,7 +235,7 @@ func TestSimpleRegister(t *testing.T) {
 		reqLogin.Login = "*Login"
 		reqLogin.Password = "12345678abcdefg"
 
-		originalUserRecord, err := ctrl.DataStore.FetchUserByLogin(`*Login`)
+		originalUserRecord, err := ctrl.DataStore.UserFetch(caller.Domain, storage.FIELD_LOGIN, `*Login`)
 		So(err, ShouldBeNil)
 
 		h := request.NewHead()
@@ -249,7 +250,6 @@ func TestSimpleRegister(t *testing.T) {
 		So(p.GetSignature(), ShouldNotEqual, "")
 
 		pack := ServiceLogin(ctrl, caller, p)
-		fmt.Println(pack)
 		rtnHead := pack.Head.(*response.Head)
 		So(rtnHead.Message, ShouldBeBlank)
 		So(rtnHead.Code, ShouldEqual, 200)
@@ -269,8 +269,6 @@ func TestSimpleRegister(t *testing.T) {
 		options := NewOptions()
 		options.Set(PERMIT_LOGIN, true)
 		pack = ServiceUpdate(ctrl, caller, p, options)
-		fmt.Println("****************")
-		fmt.Println(pack)
 
 		rtnHead = pack.Head.(*response.Head)
 		So(rtnHead.Message, ShouldEqual, "Fields updated: Login")
@@ -296,8 +294,7 @@ func TestSimpleRegister(t *testing.T) {
 		userRtn3 := record.UserReturn{}
 		err = json.Unmarshal([]byte(pack.Body), &userRtn3)
 		So(err, ShouldBeNil)
-		fmt.Println("\n******* RTN3")
-		fmt.Println(pack)
+
 		So(userRtn3.LoginName, ShouldEqual, userRtn2.LoginName)
 		So(userRtn3.FullName, ShouldEqual, userRtn2.FullName)
 		So(userRtn3.Email, ShouldEqual, reqUpdate.Email)
@@ -319,8 +316,7 @@ func TestSimpleRegister(t *testing.T) {
 		userRtn4 := record.UserReturn{}
 		err = json.Unmarshal([]byte(pack.Body), &userRtn4)
 		So(err, ShouldBeNil)
-		fmt.Println("\n******* RTN4")
-		fmt.Println(pack)
+
 		So(userRtn4.LoginName, ShouldEqual, reqUpdate.Login)
 		So(userRtn4.FullName, ShouldEqual, reqUpdate.Name)
 		So(userRtn4.Email, ShouldEqual, reqUpdate.Email)
@@ -344,13 +340,12 @@ func TestSimpleRegister(t *testing.T) {
 		userRtn5 := record.UserReturn{}
 		err = json.Unmarshal([]byte(pack.Body), &userRtn5)
 		So(err, ShouldBeNil)
-		fmt.Println("\n******* RTN5")
-		fmt.Println(pack)
+
 		So(userRtn5.LoginName, ShouldEqual, userRtn4.LoginName)
 		So(userRtn5.FullName, ShouldEqual, userRtn4.FullName)
 		So(userRtn5.Email, ShouldEqual, userRtn4.Email)
 
-		lastUserRecord, err := ctrl.DataStore.FetchUserByLogin(`*Login all`)
+		lastUserRecord, err := ctrl.DataStore.UserFetch(caller.Domain, storage.FIELD_LOGIN, reqUpdate.Login)
 		So(err, ShouldBeNil)
 		So(lastUserRecord.Password, ShouldNotEqual, originalUserRecord.Password)
 	})

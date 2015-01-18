@@ -14,25 +14,31 @@ import (
 	. "github.com/cgentry/gus/ecode"
 	"github.com/cgentry/gus/record"
 	"net/http"
+	"database/sql"
 	"strconv"
-	"time"
+	"strings"
 )
 
-var cmd_user_login string
-var cmd_user_authenticated string
-var cmd_user_logout string
 var cmd_user_update string
+var cmd_user_insert string
 
-// Save the user's record when they login. This will update the token, status and dates
-// Condition: The user must not be logged in and must be active
-func (t *SqliteConn) UserLogin(user *record.User) error {
-
-	if !user.IsActive {
-		return ErrUserNotActive
-	}
-	if cmd_user_login == "" {
-		cmd_user_login = fmt.Sprintf(`UPDATE %s
+// Update the database from the user record passed. The only fields that are not updated
+// are the CreatedAt and GUID fields. These are only set on an UserInsert call
+func (t *SqliteConn) UserUpdate(user *record.User) error {
+	if cmd_user_update == "" {
+		cmd_user_update = fmt.Sprintf(`UPDATE %s
 			 SET %s = ?,
+			 	 %s = ?,
+			     %s = ?,
+			     %s = ?,
+			     %s = ?,
+			     %s = ?,
+			     %s = ?,
+			     %s = ?,
+			     %s = ?,
+			     %s = ?,
+			     %s = ?,
+			     %s = ?,
 			     %s = ?,
 			     %s = ?,
 			     %s = ?,
@@ -40,131 +46,67 @@ func (t *SqliteConn) UserLogin(user *record.User) error {
 			     %s = ?,
 			     %s = ?,
 			     %s = ?
-           WHERE %s = ? AND %s = ?`,
+           WHERE %s = ? `,
 			record.USER_STORE_NAME,
+
+			FIELD_DOMAIN,
+			FIELD_EMAIL,
+			FIELD_FAILCOUNT,
+			FIELD_FULLNAME,
+			FIELD_LOGINNAME,
+			FIELD_PASSWORD,
+			FIELD_SALT,
 			FIELD_TOKEN,
+
+			FIELD_ISACTIVE,
 			FIELD_ISLOGGEDIN,
+			FIELD_ISSYSTEM,
+
 			FIELD_LASTAUTH_DT,
+			FIELD_LASTFAILED_DT,
 			FIELD_LOGIN_DT,
-			FIELD_UPDATED_DT,
+			FIELD_LOGOUT_DT,
 			FIELD_MAX_SESSION_DT,
 			FIELD_TIMEOUT_DT,
-			FIELD_FAILCOUNT,
+
+			FIELD_UPDATED_DT,
+			FIELD_DELETED_DT,
 
 			FIELD_GUID,
-			FIELD_ISACTIVE)
+		)
 
 	}
-	now := time.Now()
 
-	fmtTime := now.Format(record.USER_TIME_STR)
-	result, err := t.db.Exec(cmd_user_login,
+	_, err := t.db.Exec(cmd_user_update,
+		user.Domain,
+		user.Email,
+		user.GetFailCountStr(),
+		user.FullName,
+		user.LoginName,
+		user.Password,
+		user.Salt,
 		user.Token,
-		strconv.FormatBool(true /* IS LOGGED IN */),
-		fmtTime,					// LastAuthAt
-		fmtTime,					// LoginAt
-		fmtTime,					// UpdatedAt
+
+		strconv.FormatBool(user.IsActive),
+		strconv.FormatBool(user.IsLoggedIn),
+		strconv.FormatBool(user.IsSystem),
+
+		user.GetLastAuthAtStr(),
+		user.GetLastFailedAtStr(),
+		user.GetLoginAtStr(),
+		user.GetLogoutAtStr(),
 		user.GetMaxSessionAtStr(),
 		user.GetTimeoutStr(),
-		0,							// FailCount
-		user.Guid,
-		strconv.FormatBool(true))
+
+		user.GetUpdatedAtStr(),
+		user.GetDeletedAtStr(),
+
+		user.Guid) /* FIELD_GUID - KEY*/
 	if err != nil {
 		return NewGeneralFromError(err, http.StatusInternalServerError)
 	}
-	if numRows, err := result.RowsAffected(); err != nil {
-		return NewGeneralFromError(err,http.StatusInternalServerError)
-	} else if numRows == 0 {
-		return ErrUserLoggedIn
 
-	}
-	user.SetIsLoggedIn(true)
-	user.SetLastAuthAt(now)
-	user.SetLoginAt(now)
-	user.SetUpdatedAt(now)
-	user.SetFailCount(0)
 	return nil
-
-}
-
-// The user has been authenticated; this will only update the authenticated and updated dates
-// Condition: This is done by GUID, the record must be active and logged in
-func (t *SqliteConn) UserAuthenticated(user *record.User) error {
-	if cmd_user_authenticated == "" {
-		cmd_user_authenticated = fmt.Sprintf(`UPDATE %s
-			 SET %s = ?,
-			 	 %s = ?
-           WHERE %s = ?
-             AND %s = ?
-             AND %s = ?`,
-			record.USER_STORE_NAME,
-			FIELD_LASTAUTH_DT,
-			FIELD_UPDATED_DT,
-
-			FIELD_GUID,
-			FIELD_ISLOGGEDIN,
-			FIELD_ISACTIVE)
-
-	}
-	now := time.Now()
-
-	fmtTime := now.Format(record.USER_TIME_STR)
-	_, err := t.db.Exec(cmd_user_authenticated,
-		fmtTime,
-		fmtTime,
-		user.Guid,
-		strconv.FormatBool(true),
-		strconv.FormatBool(true))
-	if err != nil {
-		return NewGeneralFromError(err,http.StatusInternalServerError)
-	}
-	user.SetLastAuthAt(now)
-	user.SetUpdatedAt(now)
-	return nil
-}
-
-// The user has logged out; this will update the token, status and dates
-// Condition: The user must be logged in and must be active
-func (t *SqliteConn) UserLogout(user *record.User) error {
-	if cmd_user_logout == "" {
-		cmd_user_logout = fmt.Sprintf(`UPDATE %s
-			 SET %s = ?,
-			  	 %s = ?,
-			     %s = ?
-           WHERE %s = ?
-             AND %s = ?`,
-			record.USER_STORE_NAME,
-			FIELD_ISLOGGEDIN,
-			FIELD_LOGOUT_DT,
-			FIELD_UPDATED_DT,
-
-			FIELD_GUID,
-			FIELD_ISLOGGEDIN)
-	}
-	now := time.Now()
-
-	fmtTime := now.Format(record.USER_TIME_STR)
-	result, err := t.db.Exec(cmd_user_logout,
-		strconv.FormatBool(false), // FIELD_ISLOGGEDIN
-		fmtTime,                   // FIELD_LOGOUT_DT
-		fmtTime,                   // FIELD_UPDATED_DT
-		user.Guid,                 // FIELD_GUID
-		strconv.FormatBool(true))  // FIELD_ISLOGGEDIN
-	if err != nil {
-		return NewGeneralFromError(err, http.StatusInternalServerError)
-	}
-	if numRows, err := result.RowsAffected(); err != nil {
-		return NewGeneralFromError(err, http.StatusNotFound)
-	} else {
-		if numRows == 0 {
-			return ErrUserNotLoggedIn
-		}
-	}
-	user.SetIsLoggedIn(false)
-	user.SetLogoutAt(now)
-	user.SetUpdatedAt(now)
-	return nil
-
 }
 
 // Save most of the user record. This is used to perform general updates, including
@@ -173,64 +115,91 @@ func (t *SqliteConn) UserLogout(user *record.User) error {
 // Higher level routines can use this to completely update portions of a record. This is NOT
 // atomic as the read/update routines do not lock records. This shouldn't be a problem for
 // most cases.
-func (t *SqliteConn) UserUpdate(user *record.User) error {
-	if cmd_user_update == "" {
-		cmd_user_update = fmt.Sprintf(`UPDATE %s
-			 SET %s = ?,  %s = ?,
-			     %s = ?,  %s = ?,
-			     %s = ?,  %s = ?,
-			     %s = ?,  %s = ?,
-			     %s = ?,  %s = ?,
-			     %s = ?,  %s = ?,
-			     %s = ?,  %s = ?,
-			     %s = ?,  %s = ?
-           WHERE %s = ? `,
+func (t *SqliteConn) UserInsert(user *record.User) error {
+
+	if cmd_user_insert == "" {
+		cmd_user_insert = fmt.Sprintf(
+			`INSERT INTO %s
+			(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+		    VALUES (%s %s)`,
 			record.USER_STORE_NAME,
-			FIELD_FULLNAME,
+
+			FIELD_DOMAIN,
 			FIELD_EMAIL,
+			FIELD_FAILCOUNT,
+			FIELD_FULLNAME,
+			FIELD_GUID,
 			FIELD_LOGINNAME,
 			FIELD_PASSWORD,
+			FIELD_SALT,
 			FIELD_TOKEN,
-			FIELD_LOGIN_DT,
-			FIELD_LOGOUT_DT,
-			FIELD_LASTAUTH_DT,
-			FIELD_LASTFAILED_DT,
-			FIELD_FAILCOUNT,
-			FIELD_MAX_SESSION_DT,
-			FIELD_TIMEOUT_DT,
-			FIELD_UPDATED_DT,
-			FIELD_DELETED_DT,
+
 			FIELD_ISACTIVE,
 			FIELD_ISLOGGEDIN,
-			FIELD_GUID,
-		)
+			FIELD_ISSYSTEM,
+
+			FIELD_LASTAUTH_DT,
+			FIELD_LASTFAILED_DT,
+			FIELD_LOGIN_DT,
+			FIELD_LOGOUT_DT,
+			FIELD_MAX_SESSION_DT,
+			FIELD_TIMEOUT_DT,
+
+			FIELD_CREATED_DT,
+			FIELD_UPDATED_DT,
+			FIELD_DELETED_DT,
+
+			strings.Repeat(`?, `, 20), `?`)
 
 	}
-	now := time.Now()
-	fmtTime := now.Format(record.USER_TIME_STR)
-	_, err := t.db.Exec(cmd_user_update,
-		user.FullName,             /* FIELD_FULLNAME		*/
-		user.Email,                /* FIELD_EMAIL	  		*/
-		user.LoginName,            /* FIELD_LOGINNAME 		*/
-		user.Password,             /* FIELD_PASSWORD 		*/
-		user.Token,                /* FIELD_TOKEN 			*/
-		user.GetLoginAtStr(),      /* FIELD_LOGIN_DT 		*/
-		user.GetLogoutAtStr(),     /* FIELD_LOGOUT_DT 		*/
-		user.GetLastAuthAtStr(),   /* FIELD_LASTAUTH_DT 	*/
-		user.GetLastFailedAtStr(), /* FIELD_LASTFAILED_DT 	*/
-		user.GetFailCountStr(),    /* FIELD_FAILCOUNT 		*/
-		user.GetMaxSessionAtStr(), /* FIELD_MAX_SESSION_DT */
-		user.GetTimeoutStr(),      /* FIELD_TIMEOUT_DT 	*/
-		fmtTime,                   /* FIELD_UPDATED_DT 	*/
-		user.GetDeletedAtStr(),    /* FIELD_DELETED_DT 	*/
-		strconv.FormatBool(user.IsActive),
-		strconv.FormatBool(user.IsLoggedIn),
-		user.Guid) /* FIELD_GUID */
+
+	stmt, err := t.db.Prepare(cmd_user_insert)
+
 	if err != nil {
 		return NewGeneralFromError(err, http.StatusInternalServerError)
 	}
 
-	user.SetUpdatedAt(now)
+	result, err := stmt.Exec(
+		user.Domain,
+		user.Email,
+		user.GetFailCountStr(),
+		user.FullName,
+		user.Guid,
+		user.LoginName,
+		user.Password,
+		user.Salt,
+		user.Token,
+
+		strconv.FormatBool(user.IsActive),
+		strconv.FormatBool(user.IsLoggedIn),
+		strconv.FormatBool(user.IsSystem),
+
+		user.GetLastAuthAtStr(),
+		user.GetLastFailedAtStr(),
+		user.GetLoginAtStr(),
+		user.GetLogoutAtStr(),
+		user.GetMaxSessionAtStr(),
+		user.GetTimeoutStr(),
+
+		user.GetCreatedAtStr(),
+		user.GetUpdatedAtStr(),
+		user.GetDeletedAtStr(),
+	)
+	if err != nil {
+		if err := t.checkUserExists(user); err != ErrUserNotFound {
+			return err
+		}
+		return NewGeneralFromError(err, http.StatusInternalServerError)
+	}
+
+	if count, err := result.RowsAffected(); err != nil {
+		return NewGeneralFromError(err, http.StatusInternalServerError)
+	} else {
+		if count == 0 {
+			return ErrUserNotRegistered
+		}
+	}
+
 	return nil
 }
 
@@ -238,4 +207,55 @@ func (t *SqliteConn) UserUpdate(user *record.User) error {
 // aren't using any locks, so we don't have to do anything.
 func (t *SqliteConn) Release() error {
 	return nil
+}
+
+
+func (t *SqliteConn) checkUserExists(user *record.User) error {
+	var guid, domain, email, login sql.NullString
+
+	s := fmt.Sprintf(`SELECT
+				%s,
+				%s ,
+				%s,
+				%s
+			FROM %s
+			WHERE %s = ?
+			   OR ( %s = ? AND ( %s = ? OR %s = ?))`,
+		FIELD_GUID, /* SELECT ... */
+		FIELD_DOMAIN,
+		FIELD_EMAIL,
+		FIELD_LOGINNAME,
+
+		record.USER_STORE_NAME, /* FROM ... */
+
+		FIELD_GUID, /* WHERE ... */
+		FIELD_DOMAIN,
+		FIELD_EMAIL,
+		FIELD_LOGINNAME,
+	)
+
+	stmt, err := t.db.Prepare(s)
+	if err == nil {
+
+		row := stmt.QueryRow(
+			user.Guid,
+			user.Domain,
+			user.Email,
+			user.LoginName)
+
+		if row.Scan(&guid, &domain, &email, &login) == nil {
+			if guid.Valid && guid.String == user.Guid {
+				return ErrDuplicateGuid
+			}
+			if email.Valid && email.String == user.Email {
+				return ErrDuplicateEmail
+			}
+			if login.Valid && login.String == user.LoginName {
+				return ErrDuplicateLogin
+			}
+		}
+		return ErrUserNotFound
+	}
+
+	return ErrInternalDatabase
 }
