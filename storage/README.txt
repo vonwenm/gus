@@ -50,7 +50,7 @@ Storage drivers must follow these rules in order to work properly:
     to return additional information, for example status or field information, you should create another interface
     that implements the same as ErrorCoder but with additional fields.
 
-4. The record.User level manipulates the in-memory image of a user. It needs to perform any operations that
+4. The record.User level functions manipulates the in-memory image of a user. It needs to perform any operations that
     will alter or set information for each service call.
 
 5. The store-level driver has very few operations: Insert, Update and Fetch. Records are not deleted by GUS but can be
@@ -58,5 +58,5 @@ Storage drivers must follow these rules in order to work properly:
     fields back and forth with the database level fields.
 
 6. The driver-level interface has 'aliases' for Fetches (e.g. UserFetchByGuid) that make calling the lower routines
-    a little bit easier.
+    a little bit easier. These routines will call the single UserFetch function with extra parameters.
 

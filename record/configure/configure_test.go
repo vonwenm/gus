@@ -11,14 +11,16 @@ func TestSimpleString(t *testing.T) {
 		c := &Configure{}
 		c.Service.Host = "hostname"
 		c.Service.Port = 9090
-		c.Driver.Name = "sqlite"
-		c.Driver.Dsn = "dsn"
-		c.Driver.Options = "options"
+		c.User.Name = "sqlite"
+		c.User.Dsn = "dsn"
+		c.User.Options = "options"
 		x := c.String()
 		So( x, ShouldContainSubstring, `"hostname"`)
 		So( x, ShouldContainSubstring, `9090`)
 		So( x, ShouldContainSubstring, `"sqlite"`)
 		So( x, ShouldContainSubstring, `"dsn"`)
+
+
 	})
 }
 func TestSimpleEncode(t *testing.T) {
@@ -26,16 +28,21 @@ func TestSimpleEncode(t *testing.T) {
 		config, err := NewConfigure(t_config_test_1)
 		So(err, ShouldBeNil)
 		So(config.Service.Host, ShouldEqual, `hostname`)
+		cli := &Cli{}
+		cli.PromptForFields( config )
 	})
 
+
 }
+
 
 const t_config_test_1 = `{
   "Service": {
     "Host": "hostname",
-    "Port": 9090
+    "Port": 9090,
+    "SepStore": true
   },
-  "Driver": {
+  "User": {
     "Name": "sqlite",
     "Dsn": "dsn",
     "Options": "options"

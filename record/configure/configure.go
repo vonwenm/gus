@@ -9,18 +9,22 @@ import (
 
 type Configure struct {
 	Service Service
-	Driver  Driver
+	User  Store		`help:"The storage for the user data"`
+	Client Store	`help:"The storage for the client can be different than for the user store"`
 }
 
-type Driver struct {
-	Name    string
-	Dsn     string
-	Options string
+
+type Store struct {
+	Name    string `help:"The storage driver you want to use." name:"Driver Name"`
+	Dsn     string `help:"The specific driver data-name. Usually how to connect to the database." name:"DSN"`
+	Options string `help:"Options passed to the driver. Check the driver for what options are availble." name:"Driver options"`
 }
 
 type Service struct {
-	Host string
-	Port int
+	Host string  `name:"Hostname" help:"The IP address or host name to listen on. Leave empty to listen to all."`
+	Port int	`name:"Port" help:"The port that the service should listen on."`
+	ClientId int `name:"Header ID for Client" help:"If you are using an HTTPS load balancer, what header is set for the client id. (Must match the Email address.)`
+	SepStore bool `name:"Separate User/Client store" help:"Do you want separate client and user storage?"`
 }
 
 type Configurer interface {
@@ -41,3 +45,15 @@ func (c *Configure) String() string {
 	s, _ := json.MarshalIndent(c, ``, `  `)
 	return string(s)
 }
+
+const DEFAULT_CONFIG=`{
+  "Service": {
+    "Port": 9090,
+    "SepStore": false
+  },
+  "User": {
+    "Name": "mongo",
+    "Dsn": "dsn",
+    "Options": "User"
+  }
+}`
