@@ -52,7 +52,6 @@ func (uc *UserControl) SetMaxDuration(interval string) (err error) {
 
 func (uc *UserControl) SetTimeout(interval string) (err error) {
 	uc.TimeSinceAuthentication, err = time.ParseDuration(interval)
-	fmt.Printf("\n****** Duration of %s is %d, duration of 20m is %d\n", interval, uc.TimeSinceAuthentication, 20*time.Minute)
 
 	return err
 }

@@ -27,26 +27,26 @@ func Usage(usageTemplate string, commands []*Command) {
 }
 
 // help implements the 'help' command.
-func Help(usageTemplate string, args []string, commands []*Command) {
-	if len(args) == 0 {
+func Help(usageTemplate , cmd string, args []string, commands []*Command) {
+	if len(args) == 1 {
 		// General help
 		printUsage(os.Stdout, usageTemplate, commands)
 		return
 	}
-	if len(args) != 1 {
-		fmt.Fprintf(os.Stderr, "usage: gus help command\n\nToo many arguments given.\n")
+	if len(args) != 2 {
+		fmt.Fprintf(os.Stderr, "usage: %s help command\n\nToo many arguments given.\n", cmd , args[0])
 		os.Exit(2) // failed at 'go help'
 	}
 
 	// gus help cmd
 	for _, cmd := range commands {
-		if cmd.Name == args[0] {
+		if cmd.Name == args[1] {
 			tmpl(os.Stdout, helpTemplate, cmd)
 			return
 		}
 	}
 
-	fmt.Fprintf(os.Stderr, "Unknown help topic %#q.  Run 'gus help'.\n", args[0])
+	fmt.Fprintf(os.Stderr, "Unknown help topic %#q.  Run '%s %s'.\n", args[1] , cmd , args[0])
 	os.Exit(2) // failed at 'go help cmd'
 }
 
@@ -129,21 +129,44 @@ func capitalize(s string) string {
 	return string(unicode.ToTitle(r)) + s[n:]
 }
 
-func PromptForStructFields(substruct interface{}) {
+type HelpList struct {
+	Name	string
+	Help	string
+}
+func PromptForStructFields(substruct interface{}, helpTemplate string ) {
 	val := reflect.Indirect(reflect.ValueOf(substruct))
 
+	helpList := make(map[int]HelpList)
+
+	for i := 0; i < val.NumField(); i++ {
+		help := val.Type().Field(i).Tag.Get("help")
+		if help != "" {
+			name := val.Type().Field(i).Tag.Get("name")
+			if name != "" {
+				helpList[i] = HelpList{Name:name, Help:help}
+			}
+		}
+	}
+	tmpl(os.Stdout, helpTemplate, helpList )
 	//val := reflect.ValueOf(substruct).Elem()
 	for i := 0; i < val.NumField(); i++ {
+		hostEntry, ok := helpList[i]
+		if ! ok {
+			continue
+		}
 		valueField := val.Field(i)
 		typeField := val.Type().Field(i)
-		tag := typeField.Tag
-		help := tag.Get("help")
-		name := tag.Get("name")
-		// typeField.Name
 
-		fmt.Printf("%2d: Field: %s (%s) Current value: %v\n", i+1, name, valueField.Type().Name(), valueField.Interface())
-		fmt.Printf(".     (%s)\n", help)
-		//fmt.Printf("%2d. Field %s (%s) Current value: \n", i, v.Field(i).Name(), v.Field(i).Type().Name())
+		switch typeField.Type {
+		default:
+			fmt.Println("Don't know what this is. Skipping.")
+		case bool:
+			PromptYesNoDefault( os.Stdout, os.Stdin, helpEntry.Name, valueField )
+		case string:
+			PromptStringDefault(os.stdout, os.Stdin, helpEntry.Name, valueField )
+		}
+				//fmt.Printf("%2d: Field: %s (%s) Current value: %v\n", i+1, name, valueField.Type().Name(), valueField.Interface())
+
 	}
 }
 func promptString(w io.Writer, r io.Reader, prompt string) (string, error) {
@@ -178,6 +201,7 @@ func PromptStringDefault(w io.Writer, r io.Reader, prompt, defaultValue string) 
 			(strings.HasPrefix(txt, `'`) && strings.HasPrefix(txt, `'`)) {
 			return txt[1 : len(txt)-1]
 		}
+		return txt
 	}
 
 	return defaultValue
@@ -223,14 +247,20 @@ func PromptYesNo(w io.Writer, r io.Reader, prompt string) (bool, error) {
 
 func PromptYesNoDefault(w io.Writer, r io.Reader, prompt string, defaultValue bool) bool {
 	var txt string
-	fullPrompt := fmt.Sprintf("%s\n(yes, no, enter = %b) ?", prompt, defaultValue)
+
 	if defaultValue {
+		fullPrompt := fmt.Sprintf("%s\n(yes/no, enter = %s)", prompt, "yes")
 		txt = PromptStringDefault(w, r, fullPrompt, "yes")
 	} else {
+		fullPrompt := fmt.Sprintf("%s\n(yes/no, enter = %s)", prompt, "no")
 		txt = PromptStringDefault(w, r, fullPrompt, "no")
 	}
 	if val, err := ParseBool(txt); err == nil {
 		return val
 	}
 	return defaultValue
+}
+
+func Box( w io.Writer , info string ){
+	fmt.Fprintf(w , "****************************\n%s\n************************\n", info )
 }

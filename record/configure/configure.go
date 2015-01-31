@@ -5,6 +5,7 @@ package configure
 // There is a CLI interface to interactively build the options
 import (
 	"encoding/json"
+	"fmt"
 )
 
 type Configure struct {
@@ -18,13 +19,17 @@ type Store struct {
 	Name    string `help:"The storage driver you want to use." name:"Driver Name"`
 	Dsn     string `help:"The specific driver data-name. Usually how to connect to the database." name:"DSN"`
 	Options string `help:"Options passed to the driver. Check the driver for what options are availble." name:"Driver options"`
+	NoPrompt string
 }
 
 type Service struct {
 	Host string  `name:"Hostname" help:"The IP address or host name to listen on. Leave empty to listen to all."`
-	Port int	`name:"Port" help:"The port that the service should listen on."`
-	ClientId int `name:"Header ID for Client" help:"If you are using an HTTPS load balancer, what header is set for the client id. (Must match the Email address.)`
+	Port int	  `name:"Port" help:"The port that the service should listen on."`
+	ClientId int  `name:"Header ID for Client" help:"If you are using an HTTPS load balancer, what header is set for the client id. (Must match the Email address.)`
 	SepStore bool `name:"Separate User/Client store" help:"Do you want separate client and user storage?"`
+}
+func New() * Configure {
+	return &Configure{}
 }
 
 type Configurer interface {
@@ -32,6 +37,10 @@ type Configurer interface {
 	String() string
 }
 
+func ( c *Configure) Default(){
+	err := json.Unmarshal( []byte(DEFAULT_CONFIG) , c )
+	fmt.Println( err )
+}
 func NewConfigure(encodedConfig string) (*Configure, error) {
 	c := &Configure{}
 	return c, c.DecodeString(encodedConfig)
@@ -46,8 +55,9 @@ func (c *Configure) String() string {
 	return string(s)
 }
 
-const DEFAULT_CONFIG=`{
+const DEFAULT_CONFIG = `{
   "Service": {
+    "Host": "localhost",
     "Port": 9090,
     "SepStore": false
   },
