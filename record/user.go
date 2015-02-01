@@ -67,21 +67,21 @@ type UserInterface interface {
 // for a single user. The database routines need to take care of serialising/mapping
 // the data out to long-term storage (DB, File, etc.)
 type User struct {
-	Id       int    // our internal ID
-	FullName string // Simple full name
-	Email    string // User's primary email
-	IsSystem bool   // User is INTERNAL or EXTERNAL
+	Id       int
+	FullName string 	`name:"User's fullname" help:"User's full name (title, first, surname)"`
+	Email    string 	`name:"User's email address" help:"User's email address."`
+	IsSystem bool   	`name:"System user" help:"True if the this is a client otherwise a standard user"`
 
-	Guid string // Simple, unique user ID for external use
+	Guid string 		`name:"User's GUID" help:"How the user is identified by this system. A unique key"`
 
-	Domain    string // What system is using this user
-	LoginName string // What they login with
-	Password  string // Password (encrypted) for user
+	Domain    string 	`name:"Domain" help:"The group that the user belongs to"`
+	LoginName string 	`name:"Login name" help:"The name the user uses to login with"`
+	Password  string 	`name:"Encrypted password" help:"This is the user's encrypted password."`
 	Token     string // Generated at login-time
 
 	Salt string // Magic number used to hash values for user
 
-	IsActive   bool // Is this an active user
+	IsActive   bool 	`name:"User is enabled"   help:"If disabled, the user will not be able to login"`
 	IsLoggedIn bool // Is this user currently logged in
 
 	LoginAt      time.Time // Last login time

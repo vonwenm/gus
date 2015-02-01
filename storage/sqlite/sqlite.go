@@ -13,7 +13,7 @@ import (
 
 // Register this driver to the main storage driver with a unique name
 func init() {
-	storage.Register(STORAGE_IDENTITY, &SqliteDriver{})
+	storage.Register(NewSqliteDriver())
 }
 
 const STORAGE_IDENTITY = "sqlite"
@@ -44,7 +44,11 @@ const (
 	FIELD_DELETED_DT     = `DeletedAt`
 )
 
-type SqliteDriver struct{}
+type SqliteDriver struct {
+	Name  string
+	Short string
+	Long  string
+}
 
 type SqliteConn struct {
 	db      *sql.DB
@@ -53,8 +57,12 @@ type SqliteConn struct {
 }
 
 // Fetch a raw database Sqlite driver
-func NewSqliteDriver() SqliteDriver {
-	return SqliteDriver{}
+func NewSqliteDriver() *SqliteDriver {
+	return &SqliteDriver{
+		Name:  STORAGE_IDENTITY,
+		Short: "Simple SQLite3 driver. Only suitable for testing purposes.",
+		Long:  const_sqlite_help_template,
+	}
 }
 
 // Return the raw database handle to the caller. This allows more flexible options
@@ -64,7 +72,7 @@ func (t *SqliteConn) GetRawHandle() interface{} {
 
 // The main driver will call this function to get a connection to the SqlLite db driver.
 // it then 'routes' calls through this connection.
-func (t SqliteDriver) Open(dsnConnect string, extraDriverOptions string) (storage.Conn, error) {
+func (t *SqliteDriver) Open(dsnConnect string, extraDriverOptions string) (storage.Conn, error) {
 	var err error
 	store := &SqliteConn{
 		dsn:     dsnConnect,
@@ -73,6 +81,10 @@ func (t SqliteDriver) Open(dsnConnect string, extraDriverOptions string) (storag
 	store.db, err = sql.Open(DRIVER_IDENTITY, dsnConnect)
 	return store, NewGeneralFromError(err, http.StatusInternalServerError)
 }
+func (t *SqliteDriver) Id() string        { return t.Name }
+func (t *SqliteDriver) ShortHelp() string { return t.Short }
+func (t *SqliteDriver) LongHelp() string  { return t.Long }
+func (t *SqliteDriver) Usage() string     { return t.Short }
 
 // Close the connection to the database (if it is open)
 func (t *SqliteConn) Close() error {
@@ -83,3 +95,17 @@ func (t *SqliteConn) Close() error {
 	t.db = nil
 	return NewGeneralFromError(err, http.StatusInternalServerError)
 }
+
+const const_sqlite_help_template = `
+
+   This is a lightweight driver meant for testing and debugging systems.
+   It provides a full database testing system and stores the data in a
+   standard Sqlite3 file, accessable by the command line tool.
+
+   DSN: This is a simple string that defines the path where to store the
+        database file. The directory must be writable.
+
+   Options: This is just a string that defines the table to store the data in.
+         If nothing is passed, the default is "User".
+
+   `

@@ -9,9 +9,10 @@ import (
 func TestGenerate(t *testing.T) {
 
 	user := record.NewTestUser()
+	expected := "hello;" + user.Salt + ";SALT;Plaintext"
 	pwd := encryption.GetDriver().EncryptPassword("hello", user.Salt)
-	if pwd != "hello;"+user.Salt {
-		t.Errorf("Passwords don't match encrypted")
+	if pwd != expected {
+		t.Errorf("Passwords don't match encrypted (%s != %s)", pwd, expected)
 	}
 }
 
@@ -29,7 +30,7 @@ func TestIsLongEnough(t *testing.T) {
 	user := record.NewTestUser()
 	pwd := encryption.GetDriver().EncryptPassword("hello", user.Salt)
 	pwdLen := len(pwd)
-	sbLen := len("hello;" + user.Salt)
+	sbLen := len("hello;" + user.Salt + ";SALT;Plaintext")
 	if pwdLen != sbLen {
 		t.Errorf("PWD isn't long enough %d", pwdLen)
 	}
@@ -48,7 +49,7 @@ func TestSimilarUserDifferntPwd(t *testing.T) {
 func TestAfterChangingSalt(t *testing.T) {
 	user := record.NewTestUser()
 	pwd := encryption.GetDriver().EncryptPassword("123456", user.Salt)
-	encryption.GetDriver().SetInternalSalt("hello - this should screw up password")
+	encryption.GetDriver().Setup(`{ "Salt": "hello - this should screw up password" }`)
 	pwd2 := encryption.GetDriver().EncryptPassword("123456", user.Salt)
 
 	if pwd == pwd2 {

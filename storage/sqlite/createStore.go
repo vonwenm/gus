@@ -8,7 +8,7 @@ import (
 	"net/http"
 )
 
-// CreateStore is a non-destructive storage creation mechanism. It can be called on the command line
+// CreateStore is a non-destructive storage creation mechanism. It can be called on the cli line
 // with the option -C
 func (t *SqliteConn) CreateStore() error {
 

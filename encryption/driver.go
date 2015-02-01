@@ -2,47 +2,117 @@
 
 package encryption
 
-type Driver interface {
+import (
+	"encoding/json"
+	"strings"
+)
+
+// This defines the common requirements for an encryption driver.
+//
+type CryptDriver interface {
 	EncryptPassword(password string, salt string) string
-	SetInternalSalt(salt string)
-	ComparePasswords(hashedPassword, password, salt string) bool
+	ComparePasswords(string, string, string) bool
+	Setup(string) CryptDriver
+	Id() string
+	ShortHelp() string
+	LongHelp() string
+}
+
+// Common encryption setup options
+type CryptOptions struct {
+	Cost int
+	Salt string
+}
+
+func UnmarshalOptions(jsonOption string) (opt *CryptOptions, err error) {
+	opt = &CryptOptions{}
+	jsonOption = strings.TrimSpace(jsonOption)
+	if jsonOption != "" {
+		err = json.Unmarshal([]byte(jsonOption), opt)
+	}
+	return
 }
 
 /*
  *			Dynamic interfaces
  */
-var driverMap = make(map[string]Driver)
+var driverMap = make(map[string]CryptDriver)
 var driverSelect string
 
 const driver_name = "Encryption"
 
-func Register(name string, driver Driver) {
+func GetMap() map[string]CryptDriver {
+	return driverMap
+}
+
+func IsRegistered(name string) bool {
+	_, ok := driverMap[name]
+	return ok
+}
+
+func Register(driver CryptDriver) {
 	if driver == nil {
-		panic(driver_name + " driver: Register driver is nil")
+		panic(driver_name + " driver: Registered driver is nil")
 	}
+	name := driver.Id()
 	if _, dup := driverMap[name]; dup {
 		panic(driver_name + " driver: Register called twice for '" + name + "'")
 	}
 	driverMap[name] = driver
-
-	// First in...first registered
-	if len(driverMap) == 1 {
-		driverSelect = name
-	}
-
 }
 
-func SetDriver(name string) {
-	if _, found := driverMap[name]; !found {
+func Select(name string) CryptDriver {
+	if driver, found := driverMap[name]; !found {
 		panic(driver_name + " driver: '" + name + "'. Name not found")
+	} else {
+		driverSelect = name
+		return driver
 	}
-	driverSelect = name
 }
 
-// GetEncryption will return the driver class associated with the curent driver setup
-func GetDriver() Driver {
-	if d, found := driverMap[driverSelect]; found {
-		return d
+// GetEncryption will return the driver class associated with the current driver setup
+func GetDriver() (driver CryptDriver) {
+	var found bool
+
+	if driverSelect != "" {
+		if driver, found = driverMap[driverSelect]; found {
+			return
+		}
+	} else {
+		if len(driverMap) == 1 {
+			for driverSelect, driver = range driverMap {
+				return
+			}
+		}
 	}
-	panic(driver_name + " driver: '" + driverSelect + "'. Name not found")
+	panic(driver_name + " driver: Nothing registered")
+
 }
+
+// This is a very long encryption salt that can be
+// added in to the users' encrypted password, in addition
+// to the users' salt in the record and the salt that can be
+// optionally set for the encryption methods.
+const ENCRYPTION_SALT1 = `
+mAbnf0VwessBYrrPu3EAOWLimAlwo2DpGTCsAAyg8FjXZDrdRsVqobssPpfP
+2SaD6zsyNNVgAonD@46rK3Md1J9Rjpu8CQfXssLlfp7LADjeIISxC6F5YOVN
+4oFw21MJ4r9tpaR0QnkSVzqhtWYWikzs93BVtswf5nY5klT24WO=qTp6AVpS
+WfN!6K0SVrq1j1CQKwpeN2EsmxxurPwVt4HqELXFVPcsuU1BCgVw5QrBSUnI
+3okRPdRTN{BZgGEJpthO0sKkTzds8S6BoHGJYchxCFjYJpBqOHFFIngZcHIj
+XZhipH4kCS6lPmWUA"AEBAFYXP1y8PfLCXGgZcJFT1Aq0rxiF5O4D0wdVlmp
+70GI66OtJACkXRv24Kb6s8qUnZXnlZ6Ai1Jx0dAeSGK3QXHjqC3J0Y7G3n0E
+psKDHJDkqzG2M3QnHDJKr8OfqBzjkvV1LcEJJoaOzsOasCCXwrDkCWmIZu0W
+MQ9XYr0d1jCoSUjio6TgQ5YijfhL4HaBDWlpswwYMsnRBUnXWO0AF53vN8Nm
+ocWF5O77Xm1zePOXnWrTJ9RFtSJVE1eaazDy34lVBnStcJSGJphxGjMmCgIa`
+
+const ENCRYPTION_SALT2 = `
+wLRs54Ennj7MaYBewFC6jQw4jpiE4s6oJ6KD6mCiDcRezQjlT8952XRjfjRa
+9Xy0I770Hf5THgGu0X6RrH4Rht6t1AAee8Cz2\EqC7BmFj2jJOKsqU6QBpWG
+s83kNwog0EC7zO,4|VCH1d61i3qghKj0ynIZq6AupT721MPf2Wc6GyNNKy3R
+ttTbWbSBdL0iVdT4C0G3MyNf2XWUnyJxHZg7vLMJ0RKNhRC6RTEPPvZT3AWa
+9u4K6f6pKmpUqF5BCgo9oc2rJfZEPutziRbrda8A2KQctVxWYKrUCX28GDww
+H4wMIGOopV2ozF3bgNehxlvmFu0Ojg2Jvq5MQBdnKRPIUGUrxzVrEl3MVBCQ
+KfxuAQKzJlZ0qkKsVxp6Y38QuJAcwspdXdDYdvvSX.CL8uqZmcqbVzl4YBJv
+6UwgrGFxTDwJEj14VgiJtypls8vbAWDbBQQDkHJlvSxGvPGYlvMwn27mfXny
+ScrroMC9GhZwuBSib9dWduSMHPe1cBdbQ9AnEmCdh2IN13KgN1FO2K3cgtgL
+1EZhMHvoG0z12ZolrawEYLBXNcDv0lSuHmkRKPZZDeX2e04OtPiSVxI1lnE4`

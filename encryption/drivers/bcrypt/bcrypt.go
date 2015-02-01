@@ -10,39 +10,83 @@ import (
 	"github.com/cgentry/gus/encryption"
 )
 
-type PwdBcrypt struct{}
+type PwdBcrypt struct {
+	Name  string
+	Salt  string
+	Cost  int
+	Short string
+	Long  string
+}
 
-// The following string should not be changed once you use it.
-var internalSalt string
-
-var cost int
+const ENCRYPTION_DRIVER_ID = "bcrypt"
 
 func init() {
-	encryption.Register("bcrypt", &PwdBcrypt{})
-	internalSalt = "}o2P@56ha*6T321h£HcQXleH~$JKR1.t6jwqay%van6e9CSo^gtfyUeQp{2h&gV,KoQi9ysC"
-	cost = 7
+	encryption.Register(New())
+}
+func (t *PwdBcrypt) Id() string        { return t.Name }
+func (t *PwdBcrypt) ShortHelp() string { return t.Short }
+func (t *PwdBcrypt) LongHelp() string  { return t.Long }
+
+// Create a new BCRYPT encryption. The salt is given a static string but
+// can be set up on selection from the driver. This must be the same with every
+// load or you won't be able to login anymore.
+func New() *PwdBcrypt {
+	c := &PwdBcrypt{
+		Name:  ENCRYPTION_DRIVER_ID,
+		Short: "Standard high-quality encryption using BCRYPT methods",
+		Long:  const_bcrypt_help_template,
+		Cost:  7,
+		Salt:  "vniiO5UD0w5GpJkPijwQCT63MuMjyWnyi5TtUWBGInCq84zaFFsSwGm9DK8UyUeQp{2h&gV,KoQi9ysC",
+	}
+	return c
 }
 
 // EncryptPassword will encrypt the password using the magic number within the record.
 // This should be sufficient to protect it but still allow us to re-create later on.
 // (The magic number will never alter for the life of the record
-func (t *PwdBcrypt) EncryptPassword(pwd, salt string) string {
-
-	pass1, _ := bcrypt.GenerateFromPassword([]byte(pwd+internalSalt), cost)
+func (t *PwdBcrypt) EncryptPassword(clearPassword, userSalt string) string {
+	saltyPassword := []byte(clearPassword + t.Salt + userSalt + encryption.ENCRYPTION_SALT1)
+	pass1, _ := bcrypt.GenerateFromPassword(saltyPassword, t.Cost)
 	return string(pass1)
 }
 
-func (t *PwdBcrypt) SetInternalSalt(salt string) {
-	internalSalt = salt
+// This should be called only when the driver has been selected for use.
+func (t *PwdBcrypt) Setup(jsonOptions string) encryption.CryptDriver {
+	opt, err := encryption.UnmarshalOptions(jsonOptions)
+	if err != nil {
+		panic(err.Error())
+	}
+	if opt.Cost > 0 {
+		t.Cost = opt.Cost
+	}
+	if len(opt.Salt) > 0 {
+		t.Salt = opt.Salt
+	}
+
+	return t
 }
 
-func (t *PwdBcrypt) ComparePasswords(hashedPassword, password, salt string) bool {
-	err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password+internalSalt))
+func (t *PwdBcrypt) ComparePasswords(hashedPassword, clearPassword, userSalt string) bool {
+	saltyPassword := []byte(clearPassword + t.Salt + userSalt + encryption.ENCRYPTION_SALT1)
+	err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), saltyPassword)
 	return err == nil
 }
 
-func (t *PwdBcrypt) SetCost(costValue int) {
-	if costValue > 0 {
-		cost = costValue
-	}
-}
+const const_bcrypt_help_template = `
+  The bcrypt function is the default password hash algorithm for BSD and many other systems.
+  Besides incorporating a salt to protect against rainbow table attacks, bcrypt is an adaptive
+  function: over time, the iteration count can be increased to make it slower, so it remains
+  resistant to brute-force search attacks even with increasing computation power.
+
+  Options: There are two options that should be passed by JSON strings. They are:
+      "Cost" and "Salt". Cost is the number of iterations you want for the function, making
+      it more costly to encrypt (which is a good thing). Salt is an additional bit of
+      encryption you want added when it is encrypting the password. The salt should
+      be a long, random string of any characters. Do not include quotes.
+
+      The cost defaults to '7' and the salt has a long, random string built in. You must
+      not change the salt after you have set it or passwords will never match again.
+
+  Option format: {"Cost" : 7, "Salt": "abcd...........xyz" }
+
+`

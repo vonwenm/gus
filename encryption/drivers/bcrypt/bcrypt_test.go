@@ -47,7 +47,7 @@ func TestSimilarUserDifferntPwd(t *testing.T) {
 func TestAfterChangingSalt(t *testing.T) {
 	user := record.NewTestUser()
 	pwd := encryption.GetDriver().EncryptPassword("123456", user.Salt)
-	encryption.GetDriver().SetInternalSalt("hello - this should screw up password")
+	encryption.GetDriver().Setup(`{ "Salt": "hello - this should screw up password" }`)
 	pwd2 := encryption.GetDriver().EncryptPassword("123456", user.Salt)
 
 	if pwd == pwd2 {

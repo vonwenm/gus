@@ -24,19 +24,21 @@ const driver_name = "Storage"
 const MATCH_ANY_DOMAIN = `*`
 
 // All drivers that are registered are stored here.
-var driverMap = make(map[string]Driver, 2)
+var driverMap = make(map[string]StorageDriver, 2)
 
 // Find the driver by the 'name' and add it into the map so it can be opened.
 // Each driver can only be registered once. To remove all drivers, call
 // ResetRegister()
-func Register(name string, driver Driver) error {
+func Register(driver StorageDriver) error {
 	if driver == nil {
-		panic(driver_name + " driver: Register driver is nil")
+		panic("Register driver is nil")
 	}
-	if _, dup := driverMap[name]; dup {
+	id := driver.Id()
+	if _, dup := driverMap[id]; dup {
 		return ErrAlreadyRegistered
 	}
-	driverMap[name] = driver
+	driverMap[id] = driver
+
 	return nil
 }
 
@@ -49,9 +51,13 @@ func String() string {
 	return rtn
 }
 
+func GetMap() map[string]StorageDriver {
+	return driverMap
+}
+
 // Remove all the drivers that have been registered
 func ResetRegister() {
-	driverMap = make(map[string]Driver)
+	driverMap = make(map[string]StorageDriver, 2)
 }
 
 func IsRegistered(name string) bool {
@@ -67,7 +73,7 @@ type Store struct {
 	connectString string
 	isOpen        bool
 	lastError     error
-	driver        Driver
+	driver        StorageDriver
 	connection    Conn
 }
 

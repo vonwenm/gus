@@ -11,10 +11,11 @@ import (
 	/* Encryption support */
 	_ "github.com/cgentry/gus/encryption/drivers/bcrypt"
 	_ "github.com/cgentry/gus/encryption/drivers/sha512"
+	/* REMOVE WHEN IN PRODUCTION */
+	_ "github.com/cgentry/gus/encryption/drivers/plaintext"
 )
 
-
 const (
-	DEFAULT_CONFIG_FILENAME = "/etc/gus/config.json"
+	DEFAULT_CONFIG_FILENAME    = "/etc/gus/config.json"
 	DEFAULT_CONFIG_PERMISSIONS = 0600
 )

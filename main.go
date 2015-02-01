@@ -1,37 +1,42 @@
 package main
 
 import (
-	"github.com/cgentry/gus/command"
-	"github.com/cgentry/gus/record/configure"
-	"path/filepath"
-	"io/ioutil"
+	"encoding/json"
 	"flag"
+	"github.com/cgentry/gus/cli"
+	"github.com/cgentry/gus/record/configure"
+	"io/ioutil"
 	"log"
 	"os"
-	"encoding/json"
-
+	"path/filepath"
+	"strings"
+	"fmt"
+	"runtime/debug"
 )
 
-
 var configFileName string
-var commands = []*command.Command{
+var commands = []*cli.Command{
 	cmdConfig,
+	cmdCreateStore,
+	cmdUserAdd,
+	cmdUserActive,
+	helpStore,
+	helpEncrypt,
 }
 
-var usage_template=`Hello. it is working
-`
-var help_template=`Usage:
+var help_template = `Usage:
 
           go command [arguments]
 
 {{range .}}
-    {{.Name | printf "%-11s"}} {{.Short}}{{end}}
+    {{.Id | printf "%-11s"}} {{ .ShortHelp }}{{end}}
 
-Use "gus help [command]" for more information about a command.
+Use "gus help [command]" for more information about a cli.
 
 `
-func Usage(){
-	command.Usage( usage_template, commands )
+
+func Usage() {
+	cli.Usage(help_template, commands)
 	os.Exit(0)
 }
 func main() {
@@ -45,7 +50,7 @@ func main() {
 	}
 
 	if args[0] == "help" {
-		command.Help(help_template , "gus", args , commands )
+		cli.Help(help_template, "gus", args, commands)
 		return
 	}
 
@@ -54,8 +59,8 @@ func main() {
 		if cmd.Name == args[0] {
 			cmd.Flag.Usage = func() { cmd.Usage() }
 
-				cmd.Flag.Parse(args[1:])
-				args = cmd.Flag.Args()
+			cmd.Flag.Parse(args[1:])
+			args = cmd.Flag.Args()
 
 			cmd.Run(cmd, args)
 			return
@@ -63,46 +68,61 @@ func main() {
 	}
 }
 
-func GetConfigFileName()( Filename string , DirExists error, FileExists error ){
+func GetConfigFileName() (Filename string, DirExists error, FileExists error) {
 	if configFileName == "" {
 		configFileName = DEFAULT_CONFIG_FILENAME
 	}
-	_,DirExists = os.Stat( filepath.Dir( configFileName ) )
-	_,FileExists = os.Stat( configFileName )
+	_, DirExists = os.Stat(filepath.Dir(configFileName))
+	_, FileExists = os.Stat(configFileName)
 	Filename = configFileName
 	return
 }
 
-func GetConfigFile() ( * configure.Configure , error ){
+func GetConfigFile() (*configure.Configure, error) {
 	var err error
 	c := configure.New()
 
-	fname, dirError,fileError := GetConfigFileName()
+	fname, dirError, fileError := GetConfigFileName()
 	if dirError != nil {
 		return c, dirError
 	}
 	if fileError != nil {
 		return c, fileError
 	}
-	fdata,err := ioutil.ReadFile( fname )
+	fdata, err := ioutil.ReadFile(fname)
 	if err == nil {
-		err = json.Unmarshal( fdata, c )
+		err = json.Unmarshal(fdata, c)
 	}
+
 	return c, err
 }
 
-func SaveConfigFile( jsonString []byte ) error {
+func SaveConfigFile(jsonString []byte) error {
 	file, direrror, _ := GetConfigFileName()
-	if direrror!= nil {
+	if direrror != nil {
 		return direrror
 	}
-	return ioutil.WriteFile( file, jsonString, DEFAULT_CONFIG_PERMISSIONS )
+	return ioutil.WriteFile(file, jsonString, DEFAULT_CONFIG_PERMISSIONS)
 }
-
-
 
 // addCommonCommandFlags will add in flags that are system-wide.
-func addCommonCommandFlags( cmd * command.Command ){
-	cmd.Flag.StringVar(&configFileName,"c",DEFAULT_CONFIG_FILENAME , "" )
+func addCommonCommandFlags(cmd *cli.Command) {
+	cmd.Flag.StringVar(&configFileName, "c", DEFAULT_CONFIG_FILENAME, "")
 }
 
+func runtimeFail(msg string,err error) {
+	var rpt int
+	emsg := err.Error()
+	if  len( emsg) > len(msg ){
+		rpt = len(emsg)
+	}else{
+		rpt = len(msg)
+	}
+
+	stars := strings.Repeat("*", rpt+4)
+	fmt.Fprintf(os.Stderr, "%s\n* %-*s *\n* %-*s *\n%s\n\n", stars, rpt,msg, rpt, emsg, stars)
+	fmt.Fprintln(os.Stderr, "STACK TRACE:")
+	debug.PrintStack()
+	fmt.Fprintln(os.Stderr,"\n")
+	os.Exit(1)
+}

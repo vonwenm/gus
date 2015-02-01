@@ -10,11 +10,11 @@ package sqlite
 // Not all storage routines will be as specific, but it is best to do when ever posible
 
 import (
+	"database/sql"
 	"fmt"
 	. "github.com/cgentry/gus/ecode"
 	"github.com/cgentry/gus/record"
 	"net/http"
-	"database/sql"
 	"strconv"
 	"strings"
 )
@@ -208,7 +208,6 @@ func (t *SqliteConn) UserInsert(user *record.User) error {
 func (t *SqliteConn) Release() error {
 	return nil
 }
-
 
 func (t *SqliteConn) checkUserExists(user *record.User) error {
 	var guid, domain, email, login sql.NullString
