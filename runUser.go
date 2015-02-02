@@ -14,6 +14,21 @@ const (
 	DEFAULT_CMD_USER_LEVEL = "user"
 )
 
+var cmdUser = &cli.Command{
+	Name:      "user",
+	UsageLine: "gus user [add|enable|show|disable] [-c configfile] [-priv level] ",
+	Short:     "Manipulate users' information in the store system.",
+	Long: `
+Add a new user to the system, specifying the privledge level. This
+allows you to bootstrap users into the system. The levels can be:
+	user		Normal user (default)
+	client		Clients are allowed to remotely authenticate.
+
+To enable the record, you must add -enable or the record will be added
+but not enabled.
+`,
+}
+
 var cmdUserAdd = &cli.Command{
 	Name:      "useradd",
 	UsageLine: "gus useradd [-c configfile] [-priv level] [-enable]",
@@ -48,6 +63,12 @@ var cmdUserCli *record.UserCli
 func init() {
 	cmdUserCli = record.NewUserCli()
 
+	cmdUser.Run = runUser
+	addCommonCommandFlags(cmdUser)
+	cmdUser.Flag.StringVar(&cmdUserCli.Level, "priv", DEFAULT_CONFIG_FILENAME, "")
+	cmdUser.Flag.StringVar(&cmdUserCli.LoginName, "login" , "","")
+	cmdUser.Flag.StringVar(&cmdUserCli.Email, "email" , "","")
+
 	cmdUserAdd.Run = runUserAdd
 	addCommonCommandFlags(cmdUserAdd)
 	cmdUserAdd.Flag.StringVar(&cmdUserCli.Level, "priv", DEFAULT_CONFIG_FILENAME, "")
@@ -59,6 +80,18 @@ func init() {
 	cmdUserActive.Flag.BoolVar(&cmdUserCli.Enable, "enable", false, "")
 	cmdUserActive.Flag.StringVar(&cmdUserCli.LoginName, "login" , "","")
 	cmdUserActive.Flag.StringVar(&cmdUserCli.Email, "email" , "","")
+}
+func runUser(cmd *cli.Command, args []string ){
+	if len(args) == 0 {
+		fmt.Fprintf( os.Stderr, "%s\n", cmd.UsageLine )
+		return
+	}
+	switch {
+	case args[0] == "add" :
+		runUserAdd( cmd , args[1:])
+	case args[0] == "show" :
+		fmt.Println("Show!", args)
+	}
 }
 
 func runUserAdd(cmd *cli.Command, args []string) {

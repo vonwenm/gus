@@ -18,6 +18,7 @@ var configFileName string
 var commands = []*cli.Command{
 	cmdConfig,
 	cmdCreateStore,
+	cmdUser,
 	cmdUserAdd,
 	cmdUserActive,
 	helpStore,
@@ -48,7 +49,6 @@ func main() {
 	if len(args) < 1 {
 		Usage()
 	}
-
 	if args[0] == "help" {
 		cli.Help(help_template, "gus", args, commands)
 		return
@@ -58,11 +58,13 @@ func main() {
 	for _, cmd := range commands {
 		if cmd.Name == args[0] {
 			cmd.Flag.Usage = func() { cmd.Usage() }
-
-			cmd.Flag.Parse(args[1:])
-			args = cmd.Flag.Args()
-
-			cmd.Run(cmd, args)
+			if cmd.CustomFlags {
+				cmd.Run(cmd, args[1:])
+			}else{
+				cmd.Flag.Parse(args[1:])
+				args = cmd.Flag.Args()
+				cmd.Run(cmd, args)
+			}
 			return
 		}
 	}
