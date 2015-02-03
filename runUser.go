@@ -8,6 +8,7 @@ import (
 	"github.com/cgentry/gus/storage"
 	"github.com/cgentry/gus/encryption"
 	"os"
+	"errors"
 )
 
 const (
@@ -16,16 +17,18 @@ const (
 
 var cmdUser = &cli.Command{
 	Name:      "user",
-	UsageLine: "gus user [add|enable|show|disable] [-c configfile] [-priv level] ",
+	UsageLine: "gus user [add|enable|show|disable] [-c configfile] [-priv level] [-email mail] [-login name] ",
 	Short:     "Manipulate users' information in the store system.",
 	Long: `
-Add a new user to the system, specifying the privledge level. This
-allows you to bootstrap users into the system. The levels can be:
-	user		Normal user (default)
-	client		Clients are allowed to remotely authenticate.
-
-To enable the record, you must add -enable or the record will be added
-but not enabled.
+This has three subcommands:
+    add         add a new user to the database
+    enable      Enable the user account
+    disable     Disable the user account, but don't delete it
+    show        Display the record that matches the search criteria
+The criteria are:
+    priv        Select either a normal "user" (default) or "client" systems
+    email       Search for records matching the email address.
+    login       Search for records matching the user/client login name
 `,
 }
 
@@ -46,7 +49,7 @@ but not enabled.
 
 var cmdUserActive = &cli.Command{
 	Name:      "useractive",
-	UsageLine: "gus useractive [-c configfile] [-priv level] [-enable] [-login name] [-email email address]",
+	UsageLine: "gus useractive [-c configfile] [-priv level] [-group domain] [-enable] [-login name] [-email email address]",
 	Short:     "Enable or disable a user",
 	Long: `
 This will allow you to enable or disable any user in the system. To enable a user, you
@@ -54,7 +57,7 @@ must add '-enable' If not, the user will be disabled.
 
 The lookup can be either by login name or by email. Either criteria may be used to look the
 user up. Use "-priv client" if you are using separate client/user store and this is a client
-lookup.
+lookup. Lookups require the -group flag.
 `,
 }
 
@@ -68,29 +71,41 @@ func init() {
 	cmdUser.Flag.StringVar(&cmdUserCli.Level, "priv", DEFAULT_CONFIG_FILENAME, "")
 	cmdUser.Flag.StringVar(&cmdUserCli.LoginName, "login" , "","")
 	cmdUser.Flag.StringVar(&cmdUserCli.Email, "email" , "","")
+	cmdUser.Flag.StringVar(&cmdUserCli.Domain, "group" , "","")
 
 	cmdUserAdd.Run = runUserAdd
-	addCommonCommandFlags(cmdUserAdd)
-	cmdUserAdd.Flag.StringVar(&cmdUserCli.Level, "priv", DEFAULT_CONFIG_FILENAME, "")
-	cmdUserAdd.Flag.BoolVar(&cmdUserCli.Enable, "enable", false, "")
-
 	cmdUserActive.Run = runUserActive
-	addCommonCommandFlags(cmdUserActive)
-	cmdUserActive.Flag.StringVar(&cmdUserCli.Level, "priv", DEFAULT_CONFIG_FILENAME, "")
-	cmdUserActive.Flag.BoolVar(&cmdUserCli.Enable, "enable", false, "")
-	cmdUserActive.Flag.StringVar(&cmdUserCli.LoginName, "login" , "","")
-	cmdUserActive.Flag.StringVar(&cmdUserCli.Email, "email" , "","")
 }
 func runUser(cmd *cli.Command, args []string ){
+	var err error
 	if len(args) == 0 {
 		fmt.Fprintf( os.Stderr, "%s\n", cmd.UsageLine )
 		return
 	}
+	subCommand := args[0]
+	cmd.Flag.Parse(args[1:])
+	args = cmd.Flag.Args()
+
+	if subCommand != "add" {
+		if cmdUserCli.Domain == "" {
+			err = errors.New("Domain is required for " + subCommand)
+		}else if cmdUserCli.Email == "" && cmdUserCli.LoginName == "" {
+			err = errors.New("Email or login is required for " + subCommand)
+		}
+		if err != nil{
+			runtimeFail("Missing parameters" , err )
+		}
+	}
+
 	switch {
-	case args[0] == "add" :
-		runUserAdd( cmd , args[1:])
-	case args[0] == "show" :
-		fmt.Println("Show!", args)
+	case subCommand == "add" :
+		runUserAdd( cmd , args)
+	case subCommand == 	"show" :
+		runUserShow(cmd,args)
+	case subCommand == "enable" :
+		runUserEnable(cmd,args)
+	case subCommand == "disable" :
+		runUserDisable(cmd, args)
 	}
 }
 
@@ -136,7 +151,81 @@ func runUserAdd(cmd *cli.Command, args []string) {
 func runUserActive(cmd *cli.Command, args []string) {
 	return
 }
+func runUserEnable(cmd *cli.Command, args[]string ){
+	setUserEnableFlag(true)
+	return
+}
 
+func runUserDisable(cmd *cli.Command, args[]string){
+	setUserEnableFlag(false)
+	return
+}
+
+func runUserShow( cmd *cli.Command , args[]string ){
+	var configStore configure.Store
+
+	c, err := GetConfigFile()
+	if err != nil {
+		runtimeFail("Opening configuration file", err)
+	}
+	if c.Service.ClientStore && cmdUserCli.Level == "client" {
+		configStore =c.Client
+	}else{
+		configStore = c.User
+	}
+	store,err := storage.Open(configStore.Name, configStore.Dsn, configStore.Options)
+	defer store.Close()
+	if err != nil {
+		runtimeFail("Opening database", err )
+	}
+	userRecord := getUserRecordByCli(store, cmdUserCli)
+	cli.RenderTemplate(os.Stdout, const_user_show_template, userRecord )
+}
+
+func setUserEnableFlag( newFlag bool ){
+	var configStore configure.Store
+
+	c, err := GetConfigFile()
+	if err != nil {
+		runtimeFail("Opening configuration file", err)
+	}
+	if c.Service.ClientStore && cmdUserCli.Level == "client" {
+		configStore =c.Client
+	}else{
+		configStore = c.User
+	}
+	store,err := storage.Open(configStore.Name, configStore.Dsn, configStore.Options)
+	defer store.Close()
+	if err != nil {
+		runtimeFail("Opening database", err )
+	}
+	userRecord := getUserRecordByCli(store, cmdUserCli)
+	if userRecord.IsActive != newFlag {
+		userRecord.IsActive = newFlag
+		err := store.UserUpdate( userRecord )
+		if err != nil {
+			runtimeFail("Saving user record", err)
+		}
+		fmt.Fprintf( os.Stdout, "Record saved for user\n")
+	}else{
+		fmt.Fprintf( os.Stdout, "No change required for user.")
+	}
+	fmt.Fprintf( os.Stdout, "Done.")
+}
+
+func getUserRecordByCli( store * storage.Store , rec *record.UserCli) ( userRec *record.User) {
+	var err error
+	if rec.Email != "" {
+		userRec,err = store.FetchUserByEmail( rec.Domain, rec.Email )
+	}else {
+		userRec,err = store.FetchUserByLogin( rec.Domain, rec.LoginName )
+	}
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %s\n" , err.Error() )
+		os.Exit(1)
+	}
+	return
+}
 
 const cmd_useradd_help = `
 =================================
@@ -147,4 +236,21 @@ to add, then you will be prompted for each of the fields.{{ range . }}
     {{ .Name   }}:
         {{ .Help}}{{ end }}
 
+`
+const const_user_show_template = `
+
+User Record for: {{ .FullName }}
+
+Login ID:        {{ .LoginName }}
+Email:           {{ .Email     }}
+
+Is Enabled:      {{ .IsActive  }}
+Is Logged In:    {{ .IsLoggedIn}}
+
+Last Login:      {{ .LoginAt }}
+Last Auth:       {{ .LastAuthAt }}
+Last Logout:     {{ .LogoutAt }}
+
+Created At:      {{ .CreatedAt }}
+Updated At:      {{ .UpdatedAt }}
 `

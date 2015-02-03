@@ -154,15 +154,16 @@ func CreateSalt(len int) string {
 // the "Salt" field is a crypto-random number in order to produce
 // unique values
 func NewUser() *User {
+	now := time.Now()
 	user := new(User)
 	user.Id = 0 // Flag for 'not created'
-	user.CreatedAt = time.Now()
-	user.UpdatedAt = user.CreatedAt
+	user.CreatedAt = now
+	user.UpdatedAt = now
 	user.IsSystem = false
 
 	user.SetDomain("")
 	user.Salt = CreateSalt(20)
-	user.Token = ""
+	user.Token = CreateSalt(20)		// Tokens need to be unique
 	user.IsActive = true
 	user.IsLoggedIn = false
 	user.GenerateGuid()
