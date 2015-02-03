@@ -39,7 +39,7 @@ func (t *PwdPlaintext) EncryptPassword(clearPassword, userSalt string) string {
 }
 
 // This should be called only when the driver has been selected for use.
-func (t *PwdPlaintext) Setup(json string) encryption.CryptDriver {
+func (t *PwdPlaintext) Setup(json string) encryption.EncryptDriver {
 	opt, err := encryption.UnmarshalOptions(json)
 	if err != nil {
 		panic(err.Error())

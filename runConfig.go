@@ -82,30 +82,30 @@ func runConfig(cmd *cli.Command, args []string) {
 		c.Default()
 	}
 	for promptForValues = true; promptForValues; {
-		cli.PromptForStructFields(&c.Service, config_service_help)
+		cli.PromptForStructFields(&c.Service, template_cmd_help_config)
 		fmt.Println("\nValues are:")
 		cli.PrintStructValue(os.Stdout, &c.Service)
 		promptForValues = cli.PromptYesNoDefault(os.Stdout, os.Stdin, "Re-enter values", false)
 	}
 
 	for promptForValues = true; promptForValues; {
-		cli.PromptForStructFields(&c.Encrypt, config_encryption_help)
+		cli.PromptForStructFields(&c.Encrypt, template_cmd_help_config_crypt)
 		if strings.Contains(c.Encrypt.Options, CONFIG_SETUP_AUTOSALT) {
-			strings.Replace(c.Encrypt.Options, CONFIG_SETUP_AUTOSALT, record.CreateSalt(40), -1)
+			c.Encrypt.Options = strings.Replace(c.Encrypt.Options, CONFIG_SETUP_AUTOSALT, record.CreateSalt(200), -1)
 		}
 		fmt.Println("\nValues are:")
 		cli.PrintStructValue(os.Stdout, &c.Encrypt)
 		promptForValues = cli.PromptYesNoDefault(os.Stdout, os.Stdin, "Re-enter values", false)
 	}
 	for promptForValues = true; promptForValues; {
-		cli.PromptForStructFields(&c.User, config_user_help)
+		cli.PromptForStructFields(&c.User, template_cmd_help_config_user)
 		fmt.Println("\nValues are:")
 		cli.PrintStructValue(os.Stdout, &c.User)
 		promptForValues = cli.PromptYesNoDefault(os.Stdout, os.Stdin, "Re-enter values", false)
 	}
 	if c.Service.ClientStore {
 		for promptForValues = true; promptForValues; {
-			cli.PromptForStructFields(&c.Client, config_client_help)
+			cli.PromptForStructFields(&c.Client, template_cmd_help_config_client)
 			fmt.Println("\nValues are:")
 			cli.PrintStructValue(os.Stdout, &c.Client)
 			promptForValues = cli.PromptYesNoDefault(os.Stdout, os.Stdin, "Re-enter values", false)
@@ -189,7 +189,7 @@ func runConfigList() {
 	fmt.Println("\n")
 }
 
-const config_service_help = `
+const template_cmd_help_config = `
 =================================
     Service Configuration
 =================================
@@ -198,7 +198,7 @@ This sets the general configuration for the running of the program{{ range . }}
         {{ .Help}}{{ end }}
 
 `
-const config_user_help = `
+const template_cmd_help_config_user = `
 =================================
     User Storage Connection
 =================================
@@ -211,7 +211,7 @@ Connection for User Information
 
 `
 
-const config_client_help = `
+const template_cmd_help_config_client = `
 =================================
     Client Storage Connection
 =================================
@@ -223,7 +223,7 @@ Connection for Client Information
         {{ .Help}}{{ end }}
 
 `
-const config_encryption_help = `
+const template_cmd_help_config_crypt = `
 =================================
     Password Encryption Driver
 =================================

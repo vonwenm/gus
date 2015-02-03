@@ -20,7 +20,6 @@ var commands = []*cli.Command{
 	cmdCreateStore,
 	cmdUser,
 	cmdUserAdd,
-	cmdUserActive,
 	helpStore,
 	helpEncrypt,
 }

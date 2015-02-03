@@ -53,7 +53,7 @@ func (t *PwdSha512) EncryptPassword(clearPassword, userSalt string) string {
 		crypt.Write([]byte(userSalt))
 		crypt.Write([]byte(clearPassword))
 		crypt.Write([]byte(t.Salt))
-		crypt.Write([]byte(encryption.ENCRYPTION_SALT1))
+		crypt.Write([]byte(encryption.GetStaticSalt(i)))
 		previousPass = crypt.Sum(nil)
 		crypt.Reset()
 	}
@@ -62,7 +62,7 @@ func (t *PwdSha512) EncryptPassword(clearPassword, userSalt string) string {
 }
 
 // This should be called  when the driver has been selected for use.
-func (t *PwdSha512) Setup(jsonOption string) encryption.CryptDriver {
+func (t *PwdSha512) Setup(jsonOption string) encryption.EncryptDriver {
 
 	opt, err := encryption.UnmarshalOptions(jsonOption)
 	if err != nil {

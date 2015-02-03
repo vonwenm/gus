@@ -236,13 +236,14 @@ func PromptStringDefault(w io.Writer, r io.Reader, prompt, defaultValue string) 
 	txt,err := promptString(w,r,prompt)
 
 	if err == nil {
-
 		txt = strings.TrimSpace(txt)
 		if (strings.HasPrefix(txt, `"`) && strings.HasPrefix(txt, `"`)) ||
 			(strings.HasPrefix(txt, `'`) && strings.HasPrefix(txt, `'`)) {
 			return txt[1 : len(txt)-1]
 		}
-		return txt
+		if txt != "" {
+			return txt
+		}
 	}
 
 	return defaultValue

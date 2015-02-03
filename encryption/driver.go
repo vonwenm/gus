@@ -7,23 +7,24 @@ import (
 	"strings"
 )
 
-// This defines the common requirements for an encryption driver.
-//
-type CryptDriver interface {
+// The interface gives the set of methods that an encryption driver must implement.
+type EncryptDriver interface {
 	EncryptPassword(password string, salt string) string
 	ComparePasswords(string, string, string) bool
-	Setup(string) CryptDriver
+	Setup(string) EncryptDriver
 	Id() string
 	ShortHelp() string
 	LongHelp() string
 }
 
-// Common encryption setup options
+// These are common parameters used by many drivers. Each driver may use structures that are specific to
+// that driver.
 type CryptOptions struct {
 	Cost int
 	Salt string
 }
-
+// Unmarshal a json string containing the common options defined in CryptOptions and return
+// the option structure
 func UnmarshalOptions(jsonOption string) (opt *CryptOptions, err error) {
 	opt = &CryptOptions{}
 	jsonOption = strings.TrimSpace(jsonOption)
@@ -36,21 +37,22 @@ func UnmarshalOptions(jsonOption string) (opt *CryptOptions, err error) {
 /*
  *			Dynamic interfaces
  */
-var driverMap = make(map[string]CryptDriver)
+var driverMap = make(map[string]EncryptDriver)
 var driverSelect string
 
 const driver_name = "Encryption"
 
-func GetMap() map[string]CryptDriver {
+func GetMap() map[string]EncryptDriver {
 	return driverMap
 }
-
+// Determine if a driver is registered or not. This encapsulates the map and simply returns a boolean flag.
 func IsRegistered(name string) bool {
 	_, ok := driverMap[name]
 	return ok
 }
 
-func Register(driver CryptDriver) {
+// Register a new driver in the system.
+func Register(driver EncryptDriver) {
 	if driver == nil {
 		panic(driver_name + " driver: Registered driver is nil")
 	}
@@ -61,7 +63,8 @@ func Register(driver CryptDriver) {
 	driverMap[name] = driver
 }
 
-func Select(name string) CryptDriver {
+// Pick a registered driver for use in the system. Only one driver can be selected at a time.
+func Select(name string) EncryptDriver {
 	if driver, found := driverMap[name]; !found {
 		panic(driver_name + " driver: '" + name + "'. Name not found")
 	} else {
@@ -71,7 +74,7 @@ func Select(name string) CryptDriver {
 }
 
 // GetEncryption will return the driver class associated with the current driver setup
-func GetDriver() (driver CryptDriver) {
+func GetDriver() (driver EncryptDriver) {
 	var found bool
 
 	if driverSelect != "" {
@@ -89,30 +92,9 @@ func GetDriver() (driver CryptDriver) {
 
 }
 
-// This is a very long encryption salt that can be
-// added in to the users' encrypted password, in addition
-// to the users' salt in the record and the salt that can be
-// optionally set for the encryption methods.
-const ENCRYPTION_SALT1 = `
-mAbnf0VwessBYrrPu3EAOWLimAlwo2DpGTCsAAyg8FjXZDrdRsVqobssPpfP
-2SaD6zsyNNVgAonD@46rK3Md1J9Rjpu8CQfXssLlfp7LADjeIISxC6F5YOVN
-4oFw21MJ4r9tpaR0QnkSVzqhtWYWikzs93BVtswf5nY5klT24WO=qTp6AVpS
-WfN!6K0SVrq1j1CQKwpeN2EsmxxurPwVt4HqELXFVPcsuU1BCgVw5QrBSUnI
-3okRPdRTN{BZgGEJpthO0sKkTzds8S6BoHGJYchxCFjYJpBqOHFFIngZcHIj
-XZhipH4kCS6lPmWUA"AEBAFYXP1y8PfLCXGgZcJFT1Aq0rxiF5O4D0wdVlmp
-70GI66OtJACkXRv24Kb6s8qUnZXnlZ6Ai1Jx0dAeSGK3QXHjqC3J0Y7G3n0E
-psKDHJDkqzG2M3QnHDJKr8OfqBzjkvV1LcEJJoaOzsOasCCXwrDkCWmIZu0W
-MQ9XYr0d1jCoSUjio6TgQ5YijfhL4HaBDWlpswwYMsnRBUnXWO0AF53vN8Nm
-ocWF5O77Xm1zePOXnWrTJ9RFtSJVE1eaazDy34lVBnStcJSGJphxGjMmCgIa`
 
-const ENCRYPTION_SALT2 = `
-wLRs54Ennj7MaYBewFC6jQw4jpiE4s6oJ6KD6mCiDcRezQjlT8952XRjfjRa
-9Xy0I770Hf5THgGu0X6RrH4Rht6t1AAee8Cz2\EqC7BmFj2jJOKsqU6QBpWG
-s83kNwog0EC7zO,4|VCH1d61i3qghKj0ynIZq6AupT721MPf2Wc6GyNNKy3R
-ttTbWbSBdL0iVdT4C0G3MyNf2XWUnyJxHZg7vLMJ0RKNhRC6RTEPPvZT3AWa
-9u4K6f6pKmpUqF5BCgo9oc2rJfZEPutziRbrda8A2KQctVxWYKrUCX28GDww
-H4wMIGOopV2ozF3bgNehxlvmFu0Ojg2Jvq5MQBdnKRPIUGUrxzVrEl3MVBCQ
-KfxuAQKzJlZ0qkKsVxp6Y38QuJAcwspdXdDYdvvSX.CL8uqZmcqbVzl4YBJv
-6UwgrGFxTDwJEj14VgiJtypls8vbAWDbBQQDkHJlvSxGvPGYlvMwn27mfXny
-ScrroMC9GhZwuBSib9dWduSMHPe1cBdbQ9AnEmCdh2IN13KgN1FO2K3cgtgL
-1EZhMHvoG0z12ZolrawEYLBXNcDv0lSuHmkRKPZZDeX2e04OtPiSVxI1lnE4`
+
+func GetStaticSalt( offset int ) string {
+	modIndex := offset % len(encryption_salts)
+	return encryption_salts[ modIndex ]
+}

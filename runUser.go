@@ -47,19 +47,6 @@ but not enabled.
 `,
 }
 
-var cmdUserActive = &cli.Command{
-	Name:      "useractive",
-	UsageLine: "gus useractive [-c configfile] [-priv level] [-group domain] [-enable] [-login name] [-email email address]",
-	Short:     "Enable or disable a user",
-	Long: `
-This will allow you to enable or disable any user in the system. To enable a user, you
-must add '-enable' If not, the user will be disabled.
-
-The lookup can be either by login name or by email. Either criteria may be used to look the
-user up. Use "-priv client" if you are using separate client/user store and this is a client
-lookup. Lookups require the -group flag.
-`,
-}
 
 var cmdUserCli *record.UserCli
 
@@ -74,7 +61,6 @@ func init() {
 	cmdUser.Flag.StringVar(&cmdUserCli.Domain, "group" , "","")
 
 	cmdUserAdd.Run = runUserAdd
-	cmdUserActive.Run = runUserActive
 }
 func runUser(cmd *cli.Command, args []string ){
 	var err error
@@ -108,7 +94,9 @@ func runUser(cmd *cli.Command, args []string ){
 		runUserDisable(cmd, args)
 	}
 }
-
+// Add a single user to the system. This can be either a client or a normal user
+// User is prompted for all options
+//
 func runUserAdd(cmd *cli.Command, args []string) {
 	var promptForValues bool
 	var configStore configure.Store
@@ -121,7 +109,7 @@ func runUserAdd(cmd *cli.Command, args []string) {
 
 	// We've got the config file. Now we need to prompt for the user information
 	for promptForValues = true; promptForValues; {
-		cli.PromptForStructFields(cmdUserCli, cmd_useradd_help)
+		cli.PromptForStructFields(cmdUserCli, template_cmd_help_useradd)
 		fmt.Println("\nValues are:")
 		cli.PrintStructValue(os.Stdout, cmdUserCli)
 		promptForValues = cli.PromptYesNoDefault(os.Stdout, os.Stdin, "Re-enter values", false)
@@ -147,20 +135,19 @@ func runUserAdd(cmd *cli.Command, args []string) {
 	fmt.Fprintf( os.Stdout, "User record created for %s\n", urec.FullName )
 	return
 }
-
-func runUserActive(cmd *cli.Command, args []string) {
-	return
-}
+// Enable a user (of any flavour). Variables are stashed
+// in the userCli structure
 func runUserEnable(cmd *cli.Command, args[]string ){
 	setUserEnableFlag(true)
 	return
 }
-
+// Disable a user (of any flavour). Variables are stashed
+// in the userCli structure
 func runUserDisable(cmd *cli.Command, args[]string){
 	setUserEnableFlag(false)
 	return
 }
-
+// Find and display a user's record. Templates are used to nicely format the data.
 func runUserShow( cmd *cli.Command , args[]string ){
 	var configStore configure.Store
 
@@ -179,9 +166,11 @@ func runUserShow( cmd *cli.Command , args[]string ){
 		runtimeFail("Opening database", err )
 	}
 	userRecord := getUserRecordByCli(store, cmdUserCli)
-	cli.RenderTemplate(os.Stdout, const_user_show_template, userRecord )
+	cli.RenderTemplate(os.Stdout, template_cmd_usershow, userRecord )
 }
 
+// Set the user's enable flag to either enable or disable. Don;t
+// change anything if there is no change to be made.
 func setUserEnableFlag( newFlag bool ){
 	var configStore configure.Store
 
@@ -195,7 +184,7 @@ func setUserEnableFlag( newFlag bool ){
 		configStore = c.User
 	}
 	store,err := storage.Open(configStore.Name, configStore.Dsn, configStore.Options)
-	defer store.Close()
+	defer store.Close()						// Drop the connection and cleanup on exit
 	if err != nil {
 		runtimeFail("Opening database", err )
 	}
@@ -212,7 +201,7 @@ func setUserEnableFlag( newFlag bool ){
 	}
 	fmt.Fprintf( os.Stdout, "Done.")
 }
-
+// Find a user record either by email or login. If no error, print the message and exit.
 func getUserRecordByCli( store * storage.Store , rec *record.UserCli) ( userRec *record.User) {
 	var err error
 	if rec.Email != "" {
@@ -227,7 +216,7 @@ func getUserRecordByCli( store * storage.Store , rec *record.UserCli) ( userRec 
 	return
 }
 
-const cmd_useradd_help = `
+const template_cmd_help_useradd = `
 =================================
    Add New User
 =================================
@@ -237,9 +226,10 @@ to add, then you will be prompted for each of the fields.{{ range . }}
         {{ .Help}}{{ end }}
 
 `
-const const_user_show_template = `
-
+const template_cmd_usershow = `
+==============================================
 User Record for: {{ .FullName }}
+==============================================
 
 Login ID:        {{ .LoginName }}
 Email:           {{ .Email     }}
@@ -251,6 +241,10 @@ Last Login:      {{ .LoginAt }}
 Last Auth:       {{ .LastAuthAt }}
 Last Logout:     {{ .LogoutAt }}
 
+Error tries:     {{ .FailCount }}
+
 Created At:      {{ .CreatedAt }}
 Updated At:      {{ .UpdatedAt }}
+Deleted At:      {{ .DeletedAt }}
+
 `

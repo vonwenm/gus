@@ -45,13 +45,13 @@ func New() *PwdBcrypt {
 // This should be sufficient to protect it but still allow us to re-create later on.
 // (The magic number will never alter for the life of the record
 func (t *PwdBcrypt) EncryptPassword(clearPassword, userSalt string) string {
-	saltyPassword := []byte(clearPassword + t.Salt + userSalt + encryption.ENCRYPTION_SALT1)
+	saltyPassword := []byte(clearPassword + t.Salt + userSalt + encryption.GetStaticSalt(0))
 	pass1, _ := bcrypt.GenerateFromPassword(saltyPassword, t.Cost)
 	return string(pass1)
 }
 
 // This should be called only when the driver has been selected for use.
-func (t *PwdBcrypt) Setup(jsonOptions string) encryption.CryptDriver {
+func (t *PwdBcrypt) Setup(jsonOptions string) encryption.EncryptDriver {
 	opt, err := encryption.UnmarshalOptions(jsonOptions)
 	if err != nil {
 		panic(err.Error())
@@ -67,7 +67,7 @@ func (t *PwdBcrypt) Setup(jsonOptions string) encryption.CryptDriver {
 }
 
 func (t *PwdBcrypt) ComparePasswords(hashedPassword, clearPassword, userSalt string) bool {
-	saltyPassword := []byte(clearPassword + t.Salt + userSalt + encryption.ENCRYPTION_SALT1)
+	saltyPassword := []byte(clearPassword + t.Salt + userSalt + encryption.GetStaticSalt(0))
 	err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), saltyPassword)
 	return err == nil
 }
