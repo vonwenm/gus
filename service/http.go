@@ -3,7 +3,7 @@ package service
 import (
 	"encoding/json"
 	"errors"
-	"github.com/cgentry/gofig"
+	"github.com/cgentry/gus/record/configure"
 	"github.com/cgentry/gus/record"
 	"github.com/cgentry/gus/record/request"
 	"github.com/cgentry/gus/record/response"
@@ -33,12 +33,13 @@ func httpGetBody(r *http.Request) (requestPackage *record.Package, requestHead r
 
 // Given a GUID, find the user's record in the database. Only system users
 // will be returned. If none are found, return an error
-func httpFindSystemUser(store *storage.Store, callerGuid string) (*record.User, error) {
-	caller, err := store.FetchUserByGuid(callerGuid)
+func (s *ServiceControl )HttpFindSystemUser(callerGuid string) (*record.User, error) {
+	caller, err := s.ClientStore.FetchUserByGuid(callerGuid)
 	if err != nil || !caller.IsSystem {
 		return nil, errors.New("Invalid user id or password")
 	}
-
+	s.ClientStore.Release()
+	s.ClientStore.Reset()
 	return caller, nil
 }
 
@@ -61,18 +62,21 @@ func httpResponseWrite(w http.ResponseWriter, responsePackage *record.Package) {
 	http.Error(w, responseHead.Message, responseHead.Code)
 }
 
-func httpOpenStore(c *gofig.Configuration, w http.ResponseWriter) (ds *storage.Store, err error) {
+func (s *ServiceControl ) httpOpenStore(c *configure.Configure, w http.ResponseWriter) ( err error) {
 	var driverName, driverDsn string
 
-	if driverName, err = c.GetString(`store`, `driver`); err == nil {
-		if driverDsn, err = c.GetString(`store`, `dsn`); err == nil {
-			options := c.GetStringWithDefault(`store`, `options`, ``)
-			ds, err = storage.Open(driverName, driverDsn, options)
-		}
-	}
+	s.DataStore ,err = storage.Open( c.Store.Name, c.Store.Dsn, c.Store.Options)
 	if err != nil {
 		httpErrorWrite(w, 500, err.Error())
 		return
+	}
+	if c.Service.ClientStore {
+		s.ClientStore,err = storage.Open( c.Client.Name, c.Client.Dsn, c.Client.Options)
+	}else{
+		s.DataStore,err = storage.Open( c.Store.Name, c.Store.Dsn, c.Store.Options)
+	}
+	if err != nil {
+		httpErrorWrite(w, 500, err.Error())
 	}
 	return
 }

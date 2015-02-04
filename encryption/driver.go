@@ -20,6 +20,7 @@ type EncryptDriver interface {
 // These are common parameters used by many drivers. Each driver may use structures that are specific to
 // that driver.
 type CryptOptions struct {
+	StaticSalt bool
 	Cost int
 	Salt string
 }
