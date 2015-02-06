@@ -38,6 +38,10 @@ func NewGeneralFromError(e error, code int) ErrorCoder {
 func (s *GeneralError) Error() string { return s.errorString }
 func (s *GeneralError) Code() int     { return s.errorCode }
 
+var ErrBadPackage = NewGeneralError("Package: Bad format" , http.StatusBadRequest )
+var ErrBadBody = NewGeneralError("Package: Cannot unarshal body", http.StatusBadRequest )
+
+
 var ErrHeadNoDomain = NewGeneralError("Head: No domain", http.StatusBadRequest)
 var ErrHeadNoId = NewGeneralError("Head: No Id", http.StatusBadRequest)
 var ErrHeadNoTimestamp = NewGeneralError("Head: No timestamp set", http.StatusBadRequest)

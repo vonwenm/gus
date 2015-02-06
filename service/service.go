@@ -12,11 +12,65 @@ import (
 	"strings"
 )
 
+// All of the service control requirements are stored in this structure
+type ServiceProcess struct {
+	Run         	func( )
+	Request     	interface{}
+
+	Config      	*configure.Configure
+	Head        	*request.Head
+
+	client      	*record.User
+	responseHead 	*response.Head
+	responsePackage	* record.Package
+
+	userStore   	*storage.Store
+	clientStore 	*storage.Store
+}
+
+// The Structure that gives us the entry point for user Registration
+var ServiceRegister = &ServiceProcess {
+	Run:        Register,
+	Request:    &request.Register{},
+}
+// Setup the service structure for common values required.  This will take the request package and
+// unpack it into the header and service-specific body.
+func SetupService(s * ServiceProcessor , c *configure.Configure, requestPackage string ) (err error) {
+	pack := record.NewPackage()
+	err = json.Unmarshal([]byte(requestPackage), pack )
+	if err { return ecode.ErrBadPackage }
+
+	s.Head = &pack.Head
+	err = json.Unmarshal( pack.Body , s.Request )
+	if err != nil {return ecode.ErrBadBody }
+
+	s.userStore, err = storage.Open(s.Config.User.Name, s.Config.User.Dsn, s.Config.User.Options)
+	if err != nil { return }
+	if s.Service.ClientStore {
+		s.clientStore, err = storage.Open(s.Config.User.Name, s.Config.User.Dsn, s.Config.User.Options)
+	}else{
+		s.clientStore = s.userStore
+	}
+	s.client, err := s.clientStore.FetchUserByLogin( s.Head.Domain , s.Head.Id )
+	if err == nil {
+		err = s.Head.Check()
+	}
+	s.responseHead = response.NewHead()
+	s.responseHead.Sequence = s.Head.Sequence
+
+	s.responsePackage := record.NewPackage()
+	s.responsePackage.SetSecret([]byte(s.caller.Salt))
+
+	return
+}
+
+
 type Options map[string]bool
 
 func NewOptions() Options {
 	return make(map[string]bool)
 }
+
 func (o Options) Set(name string, value bool) {
 	o[name] = value
 }
@@ -31,25 +85,24 @@ const (
 
 // ServiceRegister will register a new user into the main ctrl.DataStore. This will package up the response into a common
 // response package after checking the integrity of the request.
-func ServiceRegister(ctrl *ServiceControl, caller *record.User, requestPackage *record.Package) *record.Package {
-
+func (s * ServiceProcess) Register() *record.Package {
+	var err error
 	requestHead, packError := serviceGetRequestHead(caller, requestPackage)
 	if packError != nil {
 		return packError
 	}
 
 	responseHead := response.NewHead()
-	responseHead.Sequence = requestHead.Sequence
+	responseHead.Sequence = s.Head.Sequence
 
-	register := request.NewRegister()
-	err := json.Unmarshal([]byte(requestPackage.Body), &register)
-	if err != nil {
+	register, ok := s.Request.( *request.Register )
+	if ! ok {
 		return serviceReturnGeneralError(caller, &responseHead, "", ecode.ErrInvalidBody)
 	}
+	if err = register.Check(); err != nil {
 
-	if err = requestHead.Check(); err != nil {
-		return serviceReturnResponse(caller, &responseHead, "", http.StatusNotAcceptable, err.Error())
 	}
+
 
 	// Good domain - save it.
 	newUser := record.NewUser()
@@ -84,7 +137,7 @@ func ServiceRegister(ctrl *ServiceControl, caller *record.User, requestPackage *
 
 // ServiceLogin will Login a user that is registered in the ctrl.DataStore. This will package up the response into a common
 // response package after checking the integrity of the request.
-func ServiceLogin(ctrl *ServiceControl, caller *record.User, requestPackage *record.Package) *record.Package {
+func ServiceLogin(ctrl *ServiceProcess, caller *record.User, requestPackage *record.Package) *record.Package {
 
 	requestHead, packError := serviceGetRequestHead(caller, requestPackage)
 	if packError != nil {
@@ -134,7 +187,7 @@ func ServiceLogin(ctrl *ServiceControl, caller *record.User, requestPackage *rec
 // ServiceLogout will logout the user that is currently logged in. Only the token is required for this operation.
 // If the user is not logged in then an error will be returned. If a user isn't found, a 'NotLoggedIn'
 // is returned instead. This is a more precise message for a logout condition
-func ServiceLogout(ctrl *ServiceControl, caller *record.User, requestPackage *record.Package) *record.Package {
+func ServiceLogout(ctrl *ServiceProcess, caller *record.User, requestPackage *record.Package) *record.Package {
 	var err error
 
 	requestHead, packError := serviceGetRequestHead(caller, requestPackage)
@@ -184,7 +237,7 @@ func ServiceLogout(ctrl *ServiceControl, caller *record.User, requestPackage *re
 //
 // If a front-end wants to create multiple interfaces (change password only, for example) it can include options
 // in the call which will stop updates from occuring.
-func ServiceUpdate(ctrl *ServiceControl, caller *record.User, requestPackage *record.Package, options Options) *record.Package {
+func ServiceUpdate(ctrl *ServiceProcess, caller *record.User, requestPackage *record.Package, options Options) *record.Package {
 	var err error
 	var updatedFields []string
 	update := request.NewUpdate()
