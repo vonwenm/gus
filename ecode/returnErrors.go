@@ -47,6 +47,10 @@ var ErrHeadNoTimestamp    = NewGeneralError("Head: No timestamp set", http.Statu
 var ErrHeadFuture         = NewGeneralError("Head: Request in the future", http.StatusBadRequest)
 var ErrHeadExpired        = NewGeneralError("Head: Request expired", http.StatusBadRequest)
 
+
+var ErrRequestNoTimestamp = NewGeneralError( "Request: No timestamp set", http.StatusBadRequest)
+var ErrRequestFuture      = NewGeneralError( "Request: Request in the future", http.StatusBadRequest)
+var ErrRequestExpired     = NewGeneralError( "Request: Request expired", http.StatusBadRequest)
 var ErrMissingLogin       = NewGeneralError( "Request: Missing login" , http.StatusBadRequest )
 var ErrMissingName        = NewGeneralError( "Request: Missing Name" , http.StatusBadRequest )
 var ErrMissingPassword    = NewGeneralError( "Request: Missing Password" , http.StatusBadRequest )

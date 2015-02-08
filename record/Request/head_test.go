@@ -9,7 +9,7 @@ import (
 func TestNewHead(t *testing.T) {
 	Convey("Generate New Head", t, func() {
 		h := NewHead()
-		So(h.Timestamp.IsZero(), ShouldBeFalse)
+		So(h.GetStamp().IsZero(), ShouldBeFalse)
 		So(h.IsTimeSet(), ShouldBeTrue)
 	})
 }
@@ -24,8 +24,11 @@ func TestGetSignature(t *testing.T) {
 }
 func TestCheckheader(t *testing.T) {
 	Convey("Check Head", t, func() {
-		h := Head{}
+
+		h := NewHead()
+		h.SetStamp(unixTimeZero)
 		So(h.IsTimeSet(), ShouldBeFalse)
+
 		Convey("Check empty header", func() {
 			err := h.Check()
 			So(err, ShouldNotBeNil)
@@ -38,16 +41,19 @@ func TestCheckheader(t *testing.T) {
 			So(err.Error(), ShouldContainSubstring, "No Id")
 		})
 		Convey("Check with domain, token but no dt", func() {
+
 			h.Domain = "Domain"
 			h.Id = "id"
+			So(h.IsTimeSet(), ShouldBeFalse)
 			err := h.Check()
 			So(err, ShouldNotBeNil)
 			So(err.Error(), ShouldContainSubstring, "No timestamp")
 		})
+
 		Convey("Check with domain, token good Time", func() {
 			h.Domain = "Domain"
 			h.Id = "id"
-			h.Timestamp = time.Now()
+			h.SetStamp(time.Now())
 			So(h.IsTimeSet(), ShouldBeTrue)
 			err := h.Check()
 			So(err, ShouldBeNil)
@@ -59,21 +65,22 @@ func TestTimeRange(t *testing.T) {
 	var now time.Time
 	Convey("Check TimeRange", t, func() {
 		h := NewHead()
-		now = h.Timestamp
+		now = h.GetStamp()
+
 		h.Domain = "Domain"
 		h.Id = "id"
-		offset := 2*time.Minute + 1*time.Second
+		offset := 8*time.Minute + 1*time.Second
 
-		So(now.Equal(h.Timestamp), ShouldBeTrue)
+		So(now.Equal(h.GetStamp()), ShouldBeTrue)
 		So(h.Check(), ShouldBeNil)
 
-		h.Timestamp = h.Timestamp.Add(-1 * offset)
-		So(h.Check(), ShouldNotBeNil)
-		So(h.Check().Error(), ShouldContainSubstring, "Request expired")
-
-		h.Timestamp = now.Add(offset)
+		h.SetStamp(now.Add(offset))
 		So(h.Check(), ShouldNotBeNil)
 		So(h.Check().Error(), ShouldContainSubstring, "Request in the future")
+
+		h.SetStamp(now.Add(-1 * offset))
+		So(h.Check(), ShouldNotBeNil)
+		So(h.Check().Error(), ShouldContainSubstring, "Request expired")
 
 	})
 }

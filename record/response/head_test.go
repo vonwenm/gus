@@ -9,7 +9,7 @@ import (
 func TestNewHead(t *testing.T) {
 	Convey("Generate New Head", t, func() {
 		h := NewHead()
-		So(h.Timestamp.IsZero(), ShouldBeFalse)
+		So(h.GetStamp().IsZero(), ShouldBeFalse)
 		So(h.IsTimeSet(), ShouldBeTrue)
 	})
 }
@@ -35,7 +35,7 @@ func TestCheckheader(t *testing.T) {
 		})
 		Convey("Check with domain, token good Time", func() {
 
-			h.Timestamp = time.Now()
+			h.SetStamp(time.Now() )
 			So(h.IsTimeSet(), ShouldBeTrue)
 			err := h.Check()
 			So(err, ShouldBeNil)
@@ -47,16 +47,16 @@ func TestTimeRange(t *testing.T) {
 	var now time.Time
 	Convey("Check TimeRange", t, func() {
 		h := NewHead()
-		now = h.Timestamp
+		now = h.GetStamp()
 
-		So(now.Equal(h.Timestamp), ShouldBeTrue)
+		So(now.Equal(h.GetStamp()), ShouldBeTrue)
 		So(h.Check(), ShouldBeNil)
 
-		h.Timestamp = now.Add(2*time.Minute + 1*time.Second)
+		h.SetStamp( now.Add(2*time.Minute + 1*time.Second) )
 		So(h.Check(), ShouldNotBeNil)
 		So(h.Check().Error(), ShouldContainSubstring, "Request in the future")
 
-		h.Timestamp = now.Add(-2*time.Minute + -1*time.Second)
+		h.SetStamp(  now.Add(-2*time.Minute + -1*time.Second) )
 		So(h.Check(), ShouldNotBeNil)
 		So(h.Check().Error(), ShouldContainSubstring, "Request expired")
 
