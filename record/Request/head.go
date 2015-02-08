@@ -22,9 +22,9 @@ func (s *Signature) GetSignature() string       { return s.sum }
 
 // Head implements the record.HeaderInterface
 type Head struct {
+	*stamp.Timestamp
 	Domain string
 	Id     string
-	*stamp.Timestamp
 	Sequence int
 	*Signature
 }
