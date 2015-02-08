@@ -1,7 +1,7 @@
 package request
 
 import (
-	"errors"
+	"github.com/cgentry/gus/ecode"
 	"strings"
 )
 
@@ -25,13 +25,17 @@ func (r *Update) Check() error {
 	r.NewPassword = strings.TrimSpace(r.NewPassword)
 	r.OldPassword = strings.TrimSpace(r.OldPassword)
 
-	if (r.NewPassword == "" && r.OldPassword != "") || (r.NewPassword != "" && r.OldPassword == "") {
-		return errors.New("New and old password must be set")
+	if r.NewPassword == "" {
+		return ecode.ErrMissingPasswordNew
 	}
-	if r.NewPassword != "" && r.OldPassword != "" {
-		if len(r.NewPassword) < 6 {
-			return errors.New("Password length is too short")
-		}
+	if r.OldPassword == "" {
+		return ecode.ErrMissingPassword
+	}
+	if r.NewPassword == r.OldPassword {
+		return ecode.ErrMatchingPassword
+	}
+	if len( r.OldPassword ) < 6 {
+		return ecode.ErrPasswordTooShort
 	}
 
 	return nil

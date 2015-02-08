@@ -1,7 +1,7 @@
 package request
 
 import (
-	"errors"
+	"github.com/cgentry/gus/ecode"
 	"strings"
 )
 
@@ -21,20 +21,21 @@ func (r *Register) Check() error {
 	r.Name = strings.TrimSpace(r.Name)
 	r.Email = strings.TrimSpace(r.Email)
 	r.Password = strings.TrimSpace(r.Password)
+
+	if r.Email == "" {
+		return ecode.ErrMissingEmail
+	}
 	if r.Login == "" {
-		return errors.New("Login cannot be blank")
+		return ecode.ErrMissingLogin
 	}
 	if r.Name == "" {
-		return errors.New("Name cannot be blank")
-	}
-	if r.Email == "" {
-		return errors.New("Email cannot be blank")
+		return ecode.ErrMissingName
 	}
 	if r.Password == "" {
-		return errors.New("Password cannot be blank")
+		return ecode.ErrMissingPassword
 	}
 	if len(r.Password) < 6 {
-		return errors.New("Password length is too short")
+		return ecode.ErrPasswordTooShort
 	}
 
 	return nil

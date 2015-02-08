@@ -258,7 +258,7 @@ func (s *Store) FetchUserByLogin(domain, loginName string) (*record.User, error)
 		s.lastError = ErrNotOpen
 		return nil, ErrNotOpen
 	}
-	rec, err := s.connection.UserFetch(domain, FIELD_EMAIL, loginName)
+	rec, err := s.connection.UserFetch(domain, FIELD_LOGIN, loginName)
 	s.lastError = err
 	return rec, err
 }

@@ -33,11 +33,11 @@ func (t *SqliteConn) fetchUserByField(domain, field, val string) (*record.User, 
 		record.USER_STORE_NAME,
 		FIELD_DOMAIN,
 		field)
-
 	rows, err := t.db.Query(cmd, domain, val)
 	if err != nil {
 		return nil, NewGeneralFromError(err, http.StatusInternalServerError)
 	}
+
 	defer rows.Close()
 
 	users := mapColumnsToUser(rows)

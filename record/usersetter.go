@@ -6,11 +6,10 @@ package record
  */
 
 import (
-	"errors"
 	"github.com/cgentry/gus/encryption"
+	"github.com/cgentry/gus/ecode"
 	"strings"
 	"time"
-	//"fmt"
 )
 
 // Set, or reset, the user's ID. When an ID is set, the GUID is reset.
@@ -20,18 +19,18 @@ func (user *User) SetID(id int) error {
 		user.Id = id
 		return nil
 	}
-	return errors.New("User id cannot be set")
+	return ecode.ErrCannotSetId
 
 }
 
 // SetName sets the fullname for the user
 func (user *User) SetName(name string) error {
 	name = strings.TrimSpace(name)
-	if len(name) > 0 {
+	if name == "" {
+		return ecode.ErrMissingName
+	}
 		user.FullName = name
 		return nil
-	}
-	return errors.New("Name cannot be empty")
 }
 
 func (user *User) SetEmail(val string) error {
@@ -41,7 +40,7 @@ func (user *User) SetEmail(val string) error {
 
 func (user *User) SetGuid(val string) error {
 	if len(val) < 32 {
-		return errors.New("GUID must be at least 32 characters long")
+		return ecode.ErrShortGuid
 	}
 	user.Guid = val
 	return nil
@@ -78,8 +77,11 @@ func (user *User) SetPasswordStr(pwd string) error {
 }
 func (user *User) SetPassword(newPassword string) error {
 	newPassword = strings.TrimSpace(newPassword)
+	if newPassword == "" {
+		return ecode.ErrMissingPassword
+	}
 	if len(newPassword) < 6 {
-		return errors.New("Password must be at least 6 characters")
+		return ecode.ErrPasswordTooShort
 	}
 	user.Password = encryption.GetDriver().EncryptPassword(newPassword, user.Salt)
 	return nil

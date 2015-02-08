@@ -20,6 +20,7 @@ type Head struct {
 	Code      int
 	Message   string
 	Timestamp time.Time
+	Id		  string
 	Sequence  int
 	*Signature
 }
