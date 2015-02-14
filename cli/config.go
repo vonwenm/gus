@@ -1,5 +1,3 @@
-package cli
-
 // This set of routines encapsulates the cli structure, which holds
 // the help text and definitions for a gus cli.
 //
@@ -7,6 +5,8 @@ package cli
 // Portions of this code are (c) 2012 by the Go Authors. This code has been
 // been adapted for use in GUS and is not the sole work of Charles Gentry.
 //
+package cli
+
 import (
 	"bufio"
 	"flag"

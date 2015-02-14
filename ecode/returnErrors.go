@@ -1,16 +1,20 @@
-package ecode
-
-// Common errors for the GUS system are defined here, in one place. When
+// GUS uses common errors throughout rather than scattering error codes throughout the system.
+// When
 // adding new drivers or new portions to the system, it is advised that you use these
 // messages, where possible. This will make the client code easier to maintain
 //
 // All messages have a common format: a code and a message string. The codes give
-// a crude type of response while the messages give a detailed error.
+// a general type of response while the messages give a detailed error. All codes have been
+// taken from standard http codes when possible.
 //
+package ecode
+
 import (
 	"net/http"
 )
 
+// The ErrorCoder builds on the standard error definition. All functions return error, but
+// the additional information can be retrieved with a simple cast.
 type ErrorCoder interface {
 	Error() string
 	Code() int
@@ -18,15 +22,18 @@ type ErrorCoder interface {
 
 /* ------------------------------------------------------------------------------------ */
 
+// General Error structure holds both an error string and an error code.
 type GeneralError struct {
 	errorString string
 	errorCode   int
 }
 
+// Create a new GeneralError from a string and an integer
 func NewGeneralError(msg string, code int) ErrorCoder {
 	return &GeneralError{errorString: msg, errorCode: code}
 }
 
+// Create a new Generalerror from a regular 'error' type and an integer
 func NewGeneralFromError(e error, code int) ErrorCoder {
 	if e == nil {
 		return nil
@@ -34,8 +41,9 @@ func NewGeneralFromError(e error, code int) ErrorCoder {
 	return &GeneralError{errorString: e.Error(), errorCode: code}
 
 }
-
+// Return the error message
 func (s *GeneralError) Error() string { return s.errorString }
+// return the error integer.
 func (s *GeneralError) Code() int     { return s.errorCode }
 
 var ErrBadPackage         = NewGeneralError("Package: Bad format" , http.StatusBadRequest )

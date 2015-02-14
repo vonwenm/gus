@@ -1,5 +1,3 @@
-package encryption
-
 // These are long, compiled in salts. We use them in various encryption drivers
 // to help make the hashes more difficult to decrypt. You can (usually) add in
 // a configured salt for the driver which will increase security. (Multiple keys)
@@ -10,6 +8,9 @@ package encryption
 //
 // That is a condition that is known as "oops".
 //
+
+package encryption
+
 var encryption_salts = []string{`
 mAbnf0VwessBYrrPu3EAOWLimAlwo2DpGTCsAAyg8FjXZDrdRsVqobssPpfP
 2SaD6zsyNNVgAonD@46rK3Md1J9Rjpu8CQfXssLlfp7LADjeIISxC6F5YOVN

@@ -1,21 +1,15 @@
 package response
 
 import (
-	"errors"
-	"time"
+	"github.com/cgentry/gus/ecode"
 	"github.com/cgentry/gus/record/stamp"
+	"github.com/cgentry/gus/record/signature"
 )
 
 const (
-	TIMESTAMP_EXPIRATION = 2 * time.Minute
+	TIMESTAMP_EXPIRATION = 2 * 60
 )
 
-type Signature struct {
-	sum string
-}
-
-func (s *Signature) SetSignature(newSum string) { s.sum = newSum }
-func (s *Signature) GetSignature() string       { return s.sum }
 
 type Head struct {
 	*stamp.Timestamp
@@ -23,13 +17,13 @@ type Head struct {
 	Message   string
 	Id		  string
 	Sequence  int
-	*Signature
+	*signature.Signature
 }
 
 func NewHead() Head {
 	h := new(Head)
 	h.Timestamp = stamp.New()
-	h.Signature = new(Signature)
+	h.Signature = signature.New()
 	h.Signature.SetSignature("")
 	return *h
 }

@@ -29,10 +29,18 @@ func init() {
 	cmdService.Run = runService
 	addCommonCommandFlags(cmdService)
 
+}
+
+func runService(cmd *cli.Command, args []string) {
+	var configStore configure.Store
+
 	c, err := GetConfigFile()
 	if err != nil {
-		runtimeFail( "Service failed" , err )
+		runtimeFail("Opening configuration file", err)
 	}
+	encryption.Select(c.Encrypt.Name).Setup(c.Encrypt.Options)
 
-	encryption.Select( c.Encrypt.Name).Setup(c.Encrypt.Options)
+
+
+	return
 }

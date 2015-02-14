@@ -1,5 +1,20 @@
+// Copyright 2014 Charles Gentry All Rights Reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+//
+// gus is the Go User Service. It provides a simple interface for login, logout, authenticate
+// and general user services. Is is flexible and configurable. The data can be stored in a number
+// of different ways (database, flat files) and different configurations can be selected.
+// The system has been carefully layered to segregate each part for easier expansion. You can
+// Change the way the system is called (an http is the current interface), change where the
+// data is stored, the way keys are encrypted, and you can limit the available options for
+// user updates.
+//
+// GUS has a built-in configuration and bootstrap system that can be used as a command-line
+// program to setup the system for the first time. It includes extensive help and interactive
+// prompts to help you configure the system.
+//
 package main
-
 import (
 	"encoding/json"
 	"flag"

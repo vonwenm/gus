@@ -16,9 +16,7 @@ func TestTimestamp(t *testing.T) {
 		tim.SetStamp( newTime )
 		So( newTime.Equal( tim.GetStamp()), ShouldBeTrue )
 
-		age := int( time.Now().Sub( newTime).Seconds() )
-		So( age, ShouldBeGreaterThan, 1000 )
-
+		age := int( newTime.Sub( time.Now() ).Seconds() )
 		So( age, ShouldEqual, tim.Age())
 	})
 }

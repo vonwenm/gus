@@ -1,8 +1,10 @@
+// Package service is the main entry point for processing requests. Any external interface should use these calls
+// to make changes to the user store.
+
 package service
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/cgentry/gus/ecode"
 	"github.com/cgentry/gus/record"
 	"github.com/cgentry/gus/record/configure"
@@ -13,6 +15,7 @@ import (
 	"strings"
 )
 
+// Permissions for updating
 const (
 	SERVICE_EMPTY_BODY = ""
 
@@ -23,6 +26,10 @@ const (
 	PERMIT_EMAIL    = "permit_email"
 )
 
+
+// Service creator is any function that returns a pointer to a ServiceProcess.
+type ServiceCreator func() *ServiceProcess
+
 type ServiceProcessor interface {
 	Setup(*configure.Configure, string) *record.Package
 	Teardown() error
@@ -30,7 +37,8 @@ type ServiceProcessor interface {
 	Response(string, error) *record.Package
 }
 
-// All of the service control requirements are stored in this structure
+// All of the service control requirements are stored in this structure. This points to the
+// runtime function that will receive this information.
 type ServiceProcess struct {
 	// Points to the function that will process the request. It will be passed this structure.
 	Run func(*ServiceProcess) *record.Package
@@ -160,7 +168,7 @@ func (s *ServiceProcess) SetupService(c *configure.Configure, requestPackage str
 	}
 
 	s.ResponseOk("")
-	return s.ResponsePackage
+	return nil
 }
 
 // Allocate storage for all of the data in the structure. This will "reset" the storage
@@ -183,27 +191,19 @@ func (s *ServiceProcess) Teardown() error {
 // response package after checking the integrity of the request.
 func register(s *ServiceProcess) *record.Package {
 	var err error
+	var eUpdate record.ErrSetter
 
 	request, ok := s.RequestBody.(*request.Register)
 	if !ok {
 		return s.ResponseCode(SERVICE_EMPTY_BODY, ecode.ErrBadBody)
 	}
 	newUser := record.NewUser()
-	if err = newUser.SetDomain(s.Client.Domain); err != nil {
-		fmt.Println("err for domain")
-		return s.ResponseCode(SERVICE_EMPTY_BODY, err)
-	}
-	if err = newUser.SetEmail(request.Email); err != nil {
-		return s.ResponseCode(SERVICE_EMPTY_BODY, err)
-	}
-	if err = newUser.SetLoginName(request.Login); err != nil {
-		return s.ResponseCode(SERVICE_EMPTY_BODY, err)
-	}
-	if err = newUser.SetName(request.Name); err != nil {
-		return s.ResponseCode(SERVICE_EMPTY_BODY, err)
-	}
-	if err = newUser.SetPassword(request.Password); err != nil {
-		return s.ResponseCode(SERVICE_EMPTY_BODY, err)
+	eUpdate.Set( newUser.SetDomain , s.Client.Domain )
+	eUpdate.Set( newUser.SetEmail  , request.Email )
+	eUpdate.Set( newUser.SetLoginName , request.Login)
+	eUpdate.Set( newUser.SetName, request.Name )
+	if err = eUpdate.Set( newUser.SetPassword , request.Password ); err != nil {
+		return s.ResponseCode(SERVICE_EMPTY_BODY , err )
 	}
 
 	if err = s.UserStore.UserInsert(newUser); err != nil {
@@ -320,6 +320,7 @@ func authenticate(s *ServiceProcess) *record.Package {
 // in the call which will stop updates from occurring.
 func update(s *ServiceProcess) *record.Package {
 	var err error
+	var eSetter record.ErrSetter
 	var updatedFields []string
 
 	update := s.RequestBody.(*request.Update)
@@ -336,22 +337,19 @@ func update(s *ServiceProcess) *record.Package {
 	defer s.UserStore.Release()
 
 	if update.Login != "" && (s.boolOption(PERMIT_ALL) || s.boolOption(PERMIT_LOGIN)) {
-		if err = user.SetLoginName(update.Login); err != nil {
-			return s.Response("", http.StatusBadRequest, err.Error())
-		}
+		eSetter.Set(user.SetLoginName, update.Login)
 		updatedFields = append(updatedFields, "Login")
 	}
 	if update.Name != "" && (s.boolOption(PERMIT_ALL) || s.boolOption(PERMIT_NAME)) {
-		if err = user.SetName(update.Name); err != nil {
-			return s.Response("", http.StatusBadRequest, err.Error())
-		}
+		eSetter.Set(user.SetName, update.Name)
 		updatedFields = append(updatedFields, "Name")
 	}
 	if update.Email != "" && (s.boolOption(PERMIT_ALL) || s.boolOption(PERMIT_EMAIL)) {
-		if err = user.SetEmail(update.Email); err != nil {
-			return s.Response("", http.StatusBadRequest, err.Error())
-		}
+		eSetter.Set(user.SetEmail, update.Email)
 		updatedFields = append(updatedFields, "Email")
+	}
+	if eSetter.Err != nil {
+		return s.ResponseCode( "" , eSetter.Err )
 	}
 	if update.OldPassword != "" && update.NewPassword != "" && (s.boolOption(PERMIT_ALL) || s.boolOption(PERMIT_PASSWORD)) {
 		if err = user.ChangePassword(update.OldPassword, update.NewPassword); err != nil {

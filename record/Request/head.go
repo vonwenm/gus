@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/cgentry/gus/ecode"
 	"github.com/cgentry/gus/record/stamp"
+	"github.com/cgentry/gus/record/signature"
 	"time"
 )
 
@@ -11,14 +12,8 @@ const (
 	TIMESTAMP_EXPIRATION = 2 * 60
 )
 
-type Signature struct {
-	sum string
-}
-
 var unixTimeZero = time.Unix(0, 0)
 
-func (s *Signature) SetSignature(newSum string) { s.sum = newSum }
-func (s *Signature) GetSignature() string       { return s.sum }
 
 // Head implements the record.HeaderInterface
 type Head struct {
@@ -26,13 +21,13 @@ type Head struct {
 	Domain string
 	Id     string
 	Sequence int
-	*Signature
+	*signature.Signature
 }
 
 func NewHead() Head {
 	h := new(Head)
 	h.Timestamp = stamp.New()
-	h.Signature = new(Signature)
+	h.Signature = signature.New()
 	h.Signature.SetSignature("")
 	return *h
 }
@@ -66,4 +61,5 @@ func (h Head) String() string {
 	return fmt.Sprintf("Domain: '%s', Id: '%s', Time: '%v', Signature: '%s', Set? %v",
 		h.Domain, h.Id, h.Timestamp, h.Signature.GetSignature(), h.IsTimeSet())
 }
+
 

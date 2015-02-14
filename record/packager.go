@@ -8,7 +8,6 @@ import (
 )
 
 type HeaderInterface interface {
-	Check() error
 	IsTimeSet() bool
 	GetSignature() string
 	SetSignature(string)
@@ -32,6 +31,7 @@ type PackagerInterface interface {
 type Package struct {
 	Head   HeaderInterface
 	Body   string
+	code   int
 	secret []byte
 }
 
@@ -74,6 +74,8 @@ func (p *Package) SetBodyString(body string) *Package {
 	return p
 }
 
+// Compute a new signature for the body and save it in the header. The signature is a base64
+// encoded string.
 func (p *Package) setSignature() {
 	if p.IsHeadSet() {
 		sig := p.computeSignature()
@@ -81,6 +83,9 @@ func (p *Package) setSignature() {
 	}
 }
 
+// Compute signature creates an HMAC signed signature, using sha256, of the body of
+// the request. The request is a JSON encoded string and the secret must be held in
+// the key. The key should be the secret key of the ID stored in the header.
 func (p *Package) computeSignature() []byte {
 	if p.IsPackageComplete() && nil != p.secret {
 		mac := hmac.New(sha256.New, p.secret)
@@ -90,6 +95,7 @@ func (p *Package) computeSignature() []byte {
 	return []byte(``)
 }
 
+// Check to see if the signature in the header is valid.
 func (p *Package) GoodSignature() bool {
 	if nil != p.secret {
 		if sig := p.Head.GetSignature(); sig != "" {
@@ -102,14 +108,18 @@ func (p *Package) GoodSignature() bool {
 	return false
 }
 
+// Return the signature of the header. This is a simple convenience wrapper
 func (p *Package) GetSignature() string {
 	return p.Head.GetSignature()
 }
 
+// Set the package secret for encoding/decoding purposes
 func (p *Package) SetSecret(NewSecret []byte) {
 	p.secret = NewSecret
 }
 
+// Clear the secret from the package. As this is a private (lowercase) variable
+// the value will never be encoded.
 func (p *Package) ClearSecret() {
 	p.secret = nil
 }

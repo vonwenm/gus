@@ -1,7 +1,13 @@
+// Package bcrypt will encrypt passwords using a strong algorithim, bcrypt,
+// and is the recommended driver. The setup option passed in can be:
+// { Cost: n, Salt: "string"}
+// Where cost is how many iterations bcrypt should perform. The higher the
+// number the longer it takes to generate and break. The default is 7.
+// Salt is an additional string you want to add in make the hash harder
+// to guess. If you don't include one, the internal salt will be used.
+
 // Copyright 2014 Charles Gentry. All rights reserved.
 // Please see the license included with this package
-//
-// This requires the optional package bcrypt
 
 package bcrypt
 
@@ -20,6 +26,7 @@ type PwdBcrypt struct {
 
 const ENCRYPTION_DRIVER_ID = "bcrypt"
 
+// init will register this driver for use.
 func init() {
 	encryption.Register(New())
 }
@@ -27,7 +34,7 @@ func (t *PwdBcrypt) Id() string        { return t.Name }
 func (t *PwdBcrypt) ShortHelp() string { return t.Short }
 func (t *PwdBcrypt) LongHelp() string  { return t.Long }
 
-// Create a new BCRYPT encryption. The salt is given a static string but
+// New will create a BCRYPT strucutre. The salt is given a static string but
 // can be set up on selection from the driver. This must be the same with every
 // load or you won't be able to login anymore.
 func New() *PwdBcrypt {
@@ -50,7 +57,7 @@ func (t *PwdBcrypt) EncryptPassword(clearPassword, userSalt string) string {
 	return string(pass1)
 }
 
-// This should be called only when the driver has been selected for use.
+// Setup should be called only when the driver has been selected for use.
 func (t *PwdBcrypt) Setup(jsonOptions string) encryption.EncryptDriver {
 	opt, err := encryption.UnmarshalOptions(jsonOptions)
 	if err != nil {
@@ -66,6 +73,7 @@ func (t *PwdBcrypt) Setup(jsonOptions string) encryption.EncryptDriver {
 	return t
 }
 
+// ComparePasswords must be called with a bcrypt password.
 func (t *PwdBcrypt) ComparePasswords(hashedPassword, clearPassword, userSalt string) bool {
 	saltyPassword := []byte(clearPassword + t.Salt + userSalt + encryption.GetStaticSalt(0))
 	err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), saltyPassword)
