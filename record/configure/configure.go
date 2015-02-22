@@ -6,7 +6,16 @@ package configure
 
 import (
 	"encoding/json"
+	"time"
 )
+
+
+var UnixTimeZero = time.Unix(0, 0)
+
+const TIMESTAMP_EXPIRATION = 120 // seconds
+const USER_TIME_STR = time.RFC3339
+const PASSWORD_MINIMUM_LENGTH = 6
+
 // Configure is the main structure holding the parameters, split up for each logical section.
 type Configure struct {
 	Service Service
@@ -54,6 +63,7 @@ func (c *Configure) Default() {
 		panic(err.Error)
 	}
 }
+
 // Create a configuration and decode the contents of the string passed.
 func NewConfigure(encodedConfig string) (*Configure, error) {
 	c := New()

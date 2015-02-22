@@ -1,13 +1,18 @@
-package record
+package mappers
 
 import (
 	. "github.com/smartystreets/goconvey/convey"
+	"github.com/cgentry/gus/record/tenant"
+	"github.com/cgentry/gus/record/response"
 	"testing"
+    _ 	"github.com/cgentry/gus/encryption/drivers/plaintext"
+	"github.com/cgentry/gus/encryption"
 	//"time"
 )
 
 func TestUserReturn(t *testing.T) {
-	user := NewTestUser()
+	encryption.Select("plaintext")
+	user := tenant.NewTestUser()
 	user.GenerateGuid()
 	user.Token = user.CreateToken()
 	user.FullName = `FullName`
@@ -16,7 +21,8 @@ func TestUserReturn(t *testing.T) {
 	err := user.Login(`ThisIsThePassword`)
 	Convey("Setup and check copy function", t, func() {
 		So(err, ShouldBeNil)
-		rtn := NewReturnFromUser(user)
+		rtn := ResponseFromUser( response.NewUserReturn() , user )
+
 		So(rtn.Guid, ShouldEqual, user.Guid)
 		So(rtn.Token, ShouldEqual, user.Token)
 		So(rtn.FullName, ShouldEqual, user.FullName)

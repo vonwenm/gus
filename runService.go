@@ -1,13 +1,9 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
 	"github.com/cgentry/gus/cli"
-	"github.com/cgentry/gus/record"
-	"github.com/cgentry/gus/storage"
-	"os"
-	"strings"
+	"github.com/cgentry/gus/encryption"
+	"github.com/cgentry/gus/service/web"
 )
 
 var cmdService = &cli.Command{
@@ -32,15 +28,14 @@ func init() {
 }
 
 func runService(cmd *cli.Command, args []string) {
-	var configStore configure.Store
 
 	c, err := GetConfigFile()
 	if err != nil {
 		runtimeFail("Opening configuration file", err)
 	}
 	encryption.Select(c.Encrypt.Name).Setup(c.Encrypt.Options)
-
-
+	router := web.New(c)
+	router.Register(web.RouteMap).Serve()
 
 	return
 }

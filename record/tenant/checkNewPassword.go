@@ -1,4 +1,4 @@
-package record
+package tenant
 
 // This is a 'holding' routine for better password verification logic. Right now it does
 // very little.
@@ -6,15 +6,12 @@ package record
 
 import (
 	. "github.com/cgentry/gus/ecode"
+	"github.com/cgentry/gus/record/configure"
 	"strings"
 )
 
-const (
-	PASSWORD_MINIMUM_LENGTH = 6
-)
-
-func (user *User) CheckNewPassword(newPassword string) error {
-	if len(newPassword) < PASSWORD_MINIMUM_LENGTH {
+func CheckNewPassword(newPassword string) error {
+	if len(newPassword) < configure.PASSWORD_MINIMUM_LENGTH {
 		return ErrPasswordTooShort
 	}
 

@@ -1,4 +1,4 @@
-package record
+package tenant
 
 /*
  * All of the setters will return either nil or ERROR. This is atypical of most
@@ -6,8 +6,8 @@ package record
  */
 
 import (
-	"github.com/cgentry/gus/encryption"
 	"github.com/cgentry/gus/ecode"
+	"github.com/cgentry/gus/encryption"
 	"strings"
 	"time"
 )
@@ -29,8 +29,8 @@ func (user *User) SetName(name string) error {
 	if name == "" {
 		return ecode.ErrMissingName
 	}
-		user.FullName = name
-		return nil
+	user.FullName = name
+	return nil
 }
 
 func (user *User) SetEmail(val string) error {

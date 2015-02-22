@@ -47,6 +47,7 @@ Initialise the user and client stores. This will be a non-destructive
 operation. If the stores exist already, nothing should occur.
 `,
 }
+
 func init() {
 	cmdConfig.Run = runConfig
 	addCommonCommandFlags(cmdConfig)
@@ -135,26 +136,26 @@ func runConfigStore(cmd *cli.Command, args []string) {
 	if err != nil {
 		runtimeFail("Opening configuration file", err)
 	}
-	userStore, err := storage.Open( c.User.Name, c.User.Dsn, c.User.Options )
+	userStore, err := storage.Open(c.User.Name, c.User.Dsn, c.User.Options)
 	if err != nil {
-		runtimeFail("Opening user store", err )
+		runtimeFail("Opening user store", err)
 	}
 	defer userStore.Close()
 	if err = userStore.CreateStore(); err != nil {
-		runtimeFail("Creating user store", err )
+		runtimeFail("Creating user store", err)
 	}
 
 	if c.Service.ClientStore {
-		clientStore, err := storage.Open( c.Client.Name, c.Client.Dsn, c.Client.Options)
+		clientStore, err := storage.Open(c.Client.Name, c.Client.Dsn, c.Client.Options)
 		if err != nil {
 			runtimeFail("Opening client store", err)
 		}
 		defer clientStore.Close()
 		if err = clientStore.CreateStore(); err != nil {
-			runtimeFail("Creating client store", err )
+			runtimeFail("Creating client store", err)
 		}
 	}
-	fmt.Fprintf( os.Stdout, "Stores created\n")
+	fmt.Fprintf(os.Stdout, "Stores created\n")
 }
 
 func configInitConfig() error {

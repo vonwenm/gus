@@ -1,14 +1,19 @@
-package request
+package head
 
 import (
+	"github.com/cgentry/gus/record/configure"
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
 	"time"
 )
 
+func checkType(h HeaderInterface) bool {
+	return true
+}
 func TestNewHead(t *testing.T) {
 	Convey("Generate New Head", t, func() {
-		h := NewHead()
+		So(checkType(New()), ShouldBeTrue)
+		h := New()
 		So(h.GetStamp().IsZero(), ShouldBeFalse)
 		So(h.IsTimeSet(), ShouldBeTrue)
 	})
@@ -16,17 +21,17 @@ func TestNewHead(t *testing.T) {
 
 func TestGetSignature(t *testing.T) {
 	Convey("Set and test signature values", t, func() {
-		h := NewHead()
-		So(h.GetSignature(), ShouldBeBlank)
-		h.SetSignature("abcdef")
-		So(h.GetSignature(), ShouldEqual, "abcdef")
+		h := New()
+		So(string(h.GetSignature()), ShouldBeBlank)
+		h.SetSignature([]byte("abcdef"))
+		So(string(h.GetSignature()), ShouldEqual, "abcdef")
 	})
 }
 func TestCheckheader(t *testing.T) {
 	Convey("Check Head", t, func() {
 
-		h := NewHead()
-		h.SetStamp(unixTimeZero)
+		h := New()
+		h.SetStamp(configure.UnixTimeZero)
 		So(h.IsTimeSet(), ShouldBeFalse)
 
 		Convey("Check empty header", func() {
@@ -64,7 +69,7 @@ func TestCheckheader(t *testing.T) {
 func TestTimeRange(t *testing.T) {
 	var now time.Time
 	Convey("Check TimeRange", t, func() {
-		h := NewHead()
+		h := New()
 		now = h.GetStamp()
 
 		h.Domain = "Domain"

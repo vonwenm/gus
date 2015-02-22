@@ -4,25 +4,20 @@ import (
 	"github.com/cgentry/gus/ecode"
 	"github.com/cgentry/gus/record/configure"
 	"github.com/cgentry/gus/record/stamp"
-	"strings"
 )
 
-type Authenticate struct {
+type Test struct {
 	*stamp.Timestamp
-	Token string
 }
 
-func NewAuthenticate() *Authenticate {
-	r := &Authenticate{}
+func NewTest() *Test {
+	r := &Test{}
 	r.Timestamp = stamp.New()
 	return r
 }
 
-func (r *Authenticate) Check() error {
-	r.Token = strings.TrimSpace(r.Token)
-	if r.Token == "" {
-		return ecode.ErrMissingToken
-	}
+func (r *Test) Check() error {
+
 	if !r.IsTimeSet() {
 		return ecode.ErrRequestNoTimestamp
 	}

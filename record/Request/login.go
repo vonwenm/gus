@@ -2,6 +2,7 @@ package request
 
 import (
 	"github.com/cgentry/gus/ecode"
+	"github.com/cgentry/gus/record/configure"
 	"github.com/cgentry/gus/record/stamp"
 	"strings"
 )
@@ -36,7 +37,7 @@ func (r *Login) Check() error {
 	if !r.IsTimeSet() {
 		return ecode.ErrRequestNoTimestamp
 	}
-	window := r.Window(TIMESTAMP_EXPIRATION)
+	window := r.Window(configure.TIMESTAMP_EXPIRATION)
 	if window != 0 {
 		if window > 0 {
 			return ecode.ErrRequestFuture

@@ -1,149 +1,144 @@
 package request
 
 import (
-	. "github.com/smartystreets/goconvey/convey"
 	"github.com/cgentry/gus/ecode"
+	. "github.com/smartystreets/goconvey/convey"
 	"testing"
 	"time"
 )
 
-func TestAuthenticate( t *testing.T) {
+func TestAuthenticate(t *testing.T) {
 	Convey("Test check and create", t, func() {
 		entity := NewAuthenticate()
 		err := entity.Check()
-		So( err, ShouldNotBeNil)
-		So( err , ShouldEqual, ecode.ErrMissingToken )
+		So(err, ShouldNotBeNil)
+		So(err, ShouldEqual, ecode.ErrMissingToken)
 
 		entity.Token = "HI"
 		err = entity.Check()
-		So( err, ShouldBeNil)
+		So(err, ShouldBeNil)
 
-		entity.SetStamp( time.Unix(0,0))
+		entity.SetStamp(time.Unix(0, 0))
 		err = entity.Check()
-		So( err, ShouldNotBeNil)
-		So( err , ShouldEqual, ecode.ErrRequestNoTimestamp )
-
+		So(err, ShouldNotBeNil)
+		So(err, ShouldEqual, ecode.ErrRequestNoTimestamp)
 
 	})
 }
 
-func TestLogin( t *testing.T) {
+func TestLogin(t *testing.T) {
 	Convey("Test check and create", t, func() {
 		entity := NewLogin()
 		err := entity.Check()
-		So( err, ShouldNotBeNil)
-		So( err , ShouldEqual, ecode.ErrMissingLogin )
+		So(err, ShouldNotBeNil)
+		So(err, ShouldEqual, ecode.ErrMissingLogin)
 
 		entity.Login = "login"
-		So( entity.GetLogin(), ShouldEqual, "login")
+		So(entity.GetLogin(), ShouldEqual, "login")
 		err = entity.Check()
-		So( err, ShouldNotBeNil)
-		So( err , ShouldEqual, ecode.ErrMissingPassword )
+		So(err, ShouldNotBeNil)
+		So(err, ShouldEqual, ecode.ErrMissingPassword)
 
 		entity.Password = "pwd"
-		So( entity.GetPassword(), ShouldEqual, "pwd")
+		So(entity.GetPassword(), ShouldEqual, "pwd")
 		err = entity.Check()
-		So( err, ShouldBeNil)
+		So(err, ShouldBeNil)
 
-		entity.SetStamp( time.Unix(0,0))
+		entity.SetStamp(time.Unix(0, 0))
 		err = entity.Check()
-		So( err, ShouldNotBeNil)
-		So( err , ShouldEqual, ecode.ErrRequestNoTimestamp )
-
+		So(err, ShouldNotBeNil)
+		So(err, ShouldEqual, ecode.ErrRequestNoTimestamp)
 
 	})
 }
-func TestLogout( t *testing.T) {
+func TestLogout(t *testing.T) {
 	Convey("Test check and create", t, func() {
 		entity := NewLogout()
 		err := entity.Check()
-		So( err, ShouldNotBeNil)
-		So( err , ShouldEqual, ecode.ErrMissingToken )
+		So(err, ShouldNotBeNil)
+		So(err, ShouldEqual, ecode.ErrMissingToken)
 
 		entity.Token = "HI"
 		err = entity.Check()
-		So( err, ShouldBeNil)
+		So(err, ShouldBeNil)
 
-		entity.SetStamp( time.Unix(0,0))
+		entity.SetStamp(time.Unix(0, 0))
 		err = entity.Check()
-		So( err, ShouldNotBeNil)
-		So( err , ShouldEqual, ecode.ErrRequestNoTimestamp )
-
+		So(err, ShouldNotBeNil)
+		So(err, ShouldEqual, ecode.ErrRequestNoTimestamp)
 
 	})
 }
 
-func TestRegister( t *testing.T) {
+func TestRegister(t *testing.T) {
 	Convey("Test check and create", t, func() {
 		entity := NewRegister()
 		err := entity.Check()
-		So( err, ShouldNotBeNil)
-		So( err , ShouldEqual, ecode.ErrMissingEmail )
+		So(err, ShouldNotBeNil)
+		So(err, ShouldEqual, ecode.ErrMissingEmail)
 
 		entity.Email = "e@mail.com"
 		err = entity.Check()
-		So( err, ShouldNotBeNil)
-		So( err , ShouldEqual, ecode.ErrMissingLogin )
+		So(err, ShouldNotBeNil)
+		So(err, ShouldEqual, ecode.ErrMissingLogin)
 
 		entity.Login = "login"
 		err = entity.Check()
-		So( err, ShouldNotBeNil)
-		So( err , ShouldEqual, ecode.ErrMissingName )
+		So(err, ShouldNotBeNil)
+		So(err, ShouldEqual, ecode.ErrMissingName)
 
 		entity.Name = "Name"
 		err = entity.Check()
-		So( err, ShouldNotBeNil)
-		So( err , ShouldEqual, ecode.ErrMissingPassword )
+		So(err, ShouldNotBeNil)
+		So(err, ShouldEqual, ecode.ErrMissingPassword)
 
 		entity.Password = "pwd"
 		err = entity.Check()
-		So( err, ShouldNotBeNil)
-		So( err , ShouldEqual, ecode.ErrPasswordTooShort )
+		So(err, ShouldNotBeNil)
+		So(err, ShouldEqual, ecode.ErrPasswordTooShort)
 
 		entity.Password = "this is a long password"
 		err = entity.Check()
-		So( err, ShouldBeNil)
+		So(err, ShouldBeNil)
 
-		entity.SetStamp( time.Unix(0,0))
+		entity.SetStamp(time.Unix(0, 0))
 		err = entity.Check()
-		So( err, ShouldNotBeNil)
-		So( err , ShouldEqual, ecode.ErrRequestNoTimestamp )
-
+		So(err, ShouldNotBeNil)
+		So(err, ShouldEqual, ecode.ErrRequestNoTimestamp)
 
 	})
 }
 
-func TestUpdate( t *testing.T) {
-Convey("Test check and create", t, func() {
-	entity := NewUpdate()
-	err := entity.Check()
-	So( err, ShouldNotBeNil)
-	So( err , ShouldEqual, ecode.ErrMissingPasswordNew )
+func TestUpdate(t *testing.T) {
+	Convey("Test check and create", t, func() {
+		entity := NewUpdate()
+		err := entity.Check()
+		So(err, ShouldNotBeNil)
+		So(err, ShouldEqual, ecode.ErrMissingPasswordNew)
 
-	entity.NewPassword = "pwd"
-	err = entity.Check()
-	So( err, ShouldNotBeNil)
-	So( err , ShouldEqual, ecode.ErrPasswordTooShort )
+		entity.NewPassword = "pwd"
+		err = entity.Check()
+		So(err, ShouldNotBeNil)
+		So(err, ShouldEqual, ecode.ErrPasswordTooShort)
 
-	entity.NewPassword = "Long password"
-	err = entity.Check()
-	So( err, ShouldNotBeNil)
-	So( err , ShouldEqual, ecode.ErrMissingPassword )
+		entity.NewPassword = "Long password"
+		err = entity.Check()
+		So(err, ShouldNotBeNil)
+		So(err, ShouldEqual, ecode.ErrMissingPassword)
 
-	entity.OldPassword = "Long password"
-	err = entity.Check()
-	So( err, ShouldNotBeNil)
-	So( err , ShouldEqual, ecode.ErrMatchingPassword )
+		entity.OldPassword = "Long password"
+		err = entity.Check()
+		So(err, ShouldNotBeNil)
+		So(err, ShouldEqual, ecode.ErrMatchingPassword)
 
-	entity.NewPassword = "New Long password"
-	err = entity.Check()
-	So( err, ShouldBeNil)
+		entity.NewPassword = "New Long password"
+		err = entity.Check()
+		So(err, ShouldBeNil)
 
-	entity.SetStamp( time.Unix(0,0))
-	err = entity.Check()
-	So( err, ShouldNotBeNil)
-	So( err , ShouldEqual, ecode.ErrRequestNoTimestamp )
+		entity.SetStamp(time.Unix(0, 0))
+		err = entity.Check()
+		So(err, ShouldNotBeNil)
+		So(err, ShouldEqual, ecode.ErrRequestNoTimestamp)
 
-
-})
+	})
 }

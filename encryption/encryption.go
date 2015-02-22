@@ -30,9 +30,10 @@ type EncryptDriver interface {
 // that driver.
 type CryptOptions struct {
 	StaticSalt bool
-	Cost int
-	Salt string
+	Cost       int
+	Salt       string
 }
+
 // Unmarshal a json string containing the common options defined in CryptOptions and return
 // the option structure
 func UnmarshalOptions(jsonOption string) (opt *CryptOptions, err error) {
@@ -55,6 +56,7 @@ const driver_name = "Encryption"
 func GetMap() map[string]EncryptDriver {
 	return driverMap
 }
+
 // Determine if a driver is registered or not. This encapsulates the map and simply returns a boolean flag.
 func IsRegistered(name string) bool {
 	_, ok := driverMap[name]
@@ -102,9 +104,7 @@ func GetDriver() (driver EncryptDriver) {
 
 }
 
-
-
-func GetStaticSalt( offset int ) string {
+func GetStaticSalt(offset int) string {
 	modIndex := offset % len(encryption_salts)
-	return encryption_salts[ modIndex ]
+	return encryption_salts[modIndex]
 }

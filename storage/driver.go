@@ -3,7 +3,7 @@ package storage
 import (
 	"fmt"
 	. "github.com/cgentry/gus/ecode"
-	"github.com/cgentry/gus/record"
+	"github.com/cgentry/gus/record/tenant"
 )
 
 // These are the names of fields we expect to occur in the database and will
@@ -35,7 +35,7 @@ func Register(driver StorageDriver) error {
 	}
 	id := driver.Id()
 	if _, dup := driverMap[id]; dup {
-		return ErrAlreadyRegistered
+		return nil
 	}
 	driverMap[id] = driver
 
@@ -65,6 +65,23 @@ func IsRegistered(name string) bool {
 	return ok
 }
 
+type Storer interface {
+	Close() error
+	GetStorageConnector() Conn
+	LastError() error
+	IsOpen() bool
+	Ping() error
+	Release() error
+	Reset()
+
+	FetchUserByEmail(domain, email string)(*tenant.User, error)
+	FetchUserByGuid(guid string) (*tenant.User, error)
+	FetchUserByLogin(domain, loginName string) (*tenant.User, error)
+	FetchUserByToken(token string) (*tenant.User, error)
+	UserFetch(domain, lookupKey, lookkupValue string) (*tenant.User, error)
+	UserInsert(user *tenant.User) error
+	UserUpdate(user *tenant.User) error
+}
 // Store holds the state for any storage driver. It allows you to have
 // consistent returns, such as getting the last error, discovering how
 // a connection was made (connectString) or the name of the driver (name)
@@ -108,10 +125,16 @@ func (s *Store) GetStorageConnector() Conn {
  * encapsulated
  */
 // Return the last known error condition that was given by a call
-func (s *Store) GetLastError() error {
+func (s *Store) LastError() error {
 	return s.lastError
 }
 
+func ( s *Store )SetLastError( err error ) *Store {
+	s.lastError = err
+	return s
+}
+
+// IsOpen will return the the open status of the connection
 func (s *Store) IsOpen() bool {
 	return s.isOpen
 }
@@ -129,7 +152,7 @@ func (s *Store) saveLastError(e error) error {
 
 // Reset any errors or intermediate conditions
 func (s *Store) Reset() {
-	s.lastError = nil
+	s.SetLastError( nil )
 	if reseter, found := s.connection.(Reseter); found {
 		reseter.Reset()
 	}
@@ -138,11 +161,11 @@ func (s *Store) Reset() {
 
 // Release any locks or memory
 func (s *Store) Release() error {
-	s.lastError = nil
+	s.SetLastError( nil )
 	if release, found := s.connection.(Releaser); found {
-		s.lastError = release.Release()
+		s.SetLastError(  release.Release() )
 	}
-	return s.lastError
+	return s.LastError()
 }
 
 // Close the connection to the storage mechanism. If there is no close routine
@@ -183,7 +206,7 @@ func (s *Store) Ping() error {
  * Mandatory functions
  */
 
-func (s *Store) UserUpdate(user *record.User) error {
+func (s *Store) UserUpdate(user *tenant.User) error {
 	if !s.isOpen {
 		s.lastError = ErrNotOpen
 		return ErrNotOpen
@@ -191,7 +214,7 @@ func (s *Store) UserUpdate(user *record.User) error {
 	return s.saveLastError(s.connection.UserUpdate(user))
 }
 
-func (s *Store) UserInsert(user *record.User) error {
+func (s *Store) UserInsert(user *tenant.User) error {
 	if !s.isOpen {
 		s.lastError = ErrNotOpen
 		return ErrNotOpen
@@ -202,7 +225,7 @@ func (s *Store) UserInsert(user *record.User) error {
 // Fetch a user's record using the domain, a field name and the field value. There will only be one record
 // returned. If you pass MATCH_ANY_DOMAIN as the domain, this will only be valid for a small number of
 // key-types (e.g. enforced unique keys.)
-func (s *Store) UserFetch(domain, lookupKey, lookkupValue string) (*record.User, error) {
+func (s *Store) UserFetch(domain, lookupKey, lookkupValue string) (*tenant.User, error) {
 	if !s.isOpen {
 		s.lastError = ErrNotOpen
 		return nil, ErrNotOpen
@@ -220,7 +243,7 @@ func (s *Store) UserFetch(domain, lookupKey, lookkupValue string) (*record.User,
 /* ------------------------ THE FOLLOWING ARE 'CONVENIENCE' FUNCTIONS ***********************/
 
 // Fetch a user by the GUID. No domains are required as this is the primary (or unique) key
-func (s *Store) FetchUserByGuid(guid string) (*record.User, error) {
+func (s *Store) FetchUserByGuid(guid string) (*tenant.User, error) {
 	if !s.isOpen {
 		s.lastError = ErrNotOpen
 		return nil, ErrNotOpen
@@ -231,7 +254,7 @@ func (s *Store) FetchUserByGuid(guid string) (*record.User, error) {
 }
 
 // Fetch a user by the logged-in token. If the user is not logged in, a 'User not found' error is returned.
-func (s *Store) FetchUserByToken(token string) (*record.User, error) {
+func (s *Store) FetchUserByToken(token string) (*tenant.User, error) {
 	if !s.isOpen {
 		s.lastError = ErrNotOpen
 		return nil, ErrNotOpen
@@ -242,7 +265,7 @@ func (s *Store) FetchUserByToken(token string) (*record.User, error) {
 }
 
 // Fetch a user by the email. Emails are not unique, except within a domain.
-func (s *Store) FetchUserByEmail(domain, email string) (*record.User, error) {
+func (s *Store) FetchUserByEmail(domain, email string) (*tenant.User, error) {
 	if !s.isOpen {
 		s.lastError = ErrNotOpen
 		return nil, ErrNotOpen
@@ -253,7 +276,7 @@ func (s *Store) FetchUserByEmail(domain, email string) (*record.User, error) {
 }
 
 // Fetch the user record by the login string. Login names are only unique within the domain
-func (s *Store) FetchUserByLogin(domain, loginName string) (*record.User, error) {
+func (s *Store) FetchUserByLogin(domain, loginName string) (*tenant.User, error) {
 	if !s.isOpen {
 		s.lastError = ErrNotOpen
 		return nil, ErrNotOpen

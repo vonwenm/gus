@@ -1,7 +1,7 @@
 package storage
 
 import (
-	"github.com/cgentry/gus/record"
+	"github.com/cgentry/gus/record/tenant"
 )
 
 // The StorageDriver interface defines very general, high level operations for retrieval and storage of
@@ -9,6 +9,7 @@ import (
 // The interfaces specify NO sql methods and flatten out operations
 type StorageDriver interface {
 	Open(connect string, extraDriverOptions string) (Conn, error)
+
 	Id() string
 	ShortHelp() string
 	LongHelp() string
@@ -16,10 +17,10 @@ type StorageDriver interface {
 
 // This is the minimum call set that every driver is required to implement
 type Conn interface {
-	UserUpdate(user *record.User) error
-	UserInsert(user *record.User) error
+	UserUpdate(user *tenant.User) error
+	UserInsert(user *tenant.User) error
 
-	UserFetch(domain, key, value string) (*record.User, error)
+	UserFetch(domain, key, value string) (*tenant.User, error)
 }
 
 // Option Storge Creation interface

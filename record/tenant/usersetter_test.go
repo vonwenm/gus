@@ -1,7 +1,8 @@
-package record
+package tenant
 
 import (
 	. "github.com/smartystreets/goconvey/convey"
+	"github.com/cgentry/gus/record/configure"
 	"testing"
 	"time"
 )
@@ -91,8 +92,8 @@ func TestSetName(t *testing.T) {
 
 func TestDateSetters(t *testing.T) {
 	user := NewUser()
-	nowStr := time.Now().Format(USER_TIME_STR)
-	now, err := time.Parse(USER_TIME_STR, nowStr)
+	nowStr := time.Now().Format(configure.USER_TIME_STR)
+	now, err := time.Parse(configure.USER_TIME_STR, nowStr)
 
 	Convey("Check setters setting", t, func() {
 		So(err, ShouldBeNil)

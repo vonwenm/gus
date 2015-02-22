@@ -5,12 +5,13 @@ package sqlite
 
 import (
 	"database/sql"
-	"github.com/cgentry/gus/record"
+	"github.com/cgentry/gus/record/tenant"
+	"github.com/cgentry/gus/record/mappers"
 )
 
-func mapColumnsToUser(rows *sql.Rows) []*record.User {
+func mapColumnsToUser(rows *sql.Rows) []*tenant.User {
 
-	var allUsers []*record.User
+	var allUsers []*tenant.User
 	columns, _ := rows.Columns()
 	count := len(columns)
 	values := make([]interface{}, count)
@@ -21,14 +22,14 @@ func mapColumnsToUser(rows *sql.Rows) []*record.User {
 		for i := range columns {
 			vpoint[i] = &values[i]
 		}
-		user := record.NewUser()
+		user := tenant.NewUser()
 		rows.Scan(vpoint...)
 
 		for i, col := range columns {
 			val := values[i]
 			if b, ok := val.([]byte); ok {
 				vstr = string(b)
-				user.MapFieldToUser(col, vstr)
+				mappers.UserField(user,col, vstr)
 			} // End columns
 
 			allUsers = append(allUsers, user)

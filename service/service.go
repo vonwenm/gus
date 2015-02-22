@@ -8,11 +8,15 @@ import (
 	"github.com/cgentry/gus/ecode"
 	"github.com/cgentry/gus/record"
 	"github.com/cgentry/gus/record/configure"
+	"github.com/cgentry/gus/record/head"
+	"github.com/cgentry/gus/record/mappers"
 	"github.com/cgentry/gus/record/request"
 	"github.com/cgentry/gus/record/response"
+	"github.com/cgentry/gus/record/tenant"
 	"github.com/cgentry/gus/storage"
 	"net/http"
 	"strings"
+	"fmt"
 )
 
 // Permissions for updating
@@ -25,7 +29,6 @@ const (
 	PERMIT_NAME     = "permit_name"
 	PERMIT_EMAIL    = "permit_email"
 )
-
 
 // Service creator is any function that returns a pointer to a ServiceProcess.
 type ServiceCreator func() *ServiceProcess
@@ -48,29 +51,32 @@ type ServiceProcess struct {
 
 	// The request head is the unpacked header that was decoded from the incoming
 	// request package.
-	RequestHead request.Head
+	RequestHead *head.Head
 	// The request body, unpacked for the service record
 	RequestBody record.BodyInterface
 	// Client record making the request. This can come from the user or client database
-	Client *record.User
+	Client *tenant.User
 
 	// Header for response we are sending back.
-	ResponseHead response.Head
+	ResponseHead * head.Head
 	// Record package - this is what will be returned from any of the calls.
 	ResponsePackage *record.Package
 
 	// Datastore for user records. The clientstore, if separate, is not stored as it is
 	// only needed once to access the client record.
-	UserStore *storage.Store
+	UserStore storage.Storer
 
 	// Options can be used to set any options that are desired for the routines.
 	Options map[string]string
+
+	SetFlag bool
 }
 
 func NewServiceRegister() *ServiceProcess {
 	r := &ServiceProcess{
 		Run:         register,
 		RequestBody: &request.Register{},
+		SetFlag : false,
 	}
 	return r.Reset()
 }
@@ -112,6 +118,16 @@ func NewServiceAuthenticate() *ServiceProcess {
 
 }
 
+// NewServiceTest is the entry point for a client checking a connection
+func NewServiceTest() *ServiceProcess {
+	r := &ServiceProcess{
+		Run:         servicetest,
+		RequestBody: &request.Test{},
+	}
+	return r.Reset()
+
+}
+
 // Setup the service structure for common values required.  This will take the request package and
 // unpack it into the header and service-specific body.
 func (s *ServiceProcess) SetupService(c *configure.Configure, requestPackage string) *record.Package {
@@ -120,15 +136,18 @@ func (s *ServiceProcess) SetupService(c *configure.Configure, requestPackage str
 	// Unpack the incoming request, saving the body and header in our structure.
 	// ensure the package has all of the required elements.
 	pack := record.NewPackage()
-	err = json.Unmarshal([]byte(requestPackage), pack)
-	if err != nil || !pack.IsPackageComplete() {
-		return s.ResponseCode(SERVICE_EMPTY_BODY, ecode.ErrBadPackage)
+	if err = json.Unmarshal([]byte(requestPackage), pack); err != nil {
+		return s.ResponseCode( err.Error() , ecode.ErrBadPackage)
 	}
-	s.RequestHead, _ = pack.Head.(request.Head)
+
+	if !pack.IsPackageComplete() {
+		return s.ResponseCode(`"{"Message": "Package is not complete"}`, ecode.ErrBadPackage)
+	}
+	s.RequestHead,_= pack.GetHead().(*head.Head)
 	s.ResponseHead.Sequence = s.RequestHead.Sequence
 	s.ResponseHead.Id = s.RequestHead.Id
 	if err = s.RequestHead.Check(); err != nil {
-		return s.ResponseCode(SERVICE_EMPTY_BODY, err)
+		return s.ResponseCode(`{"Message":"Header is not complete."}`, err)
 	}
 
 	// Open up the storage handles. We only need the UserStore as the ClientStore is transitory
@@ -137,6 +156,7 @@ func (s *ServiceProcess) SetupService(c *configure.Configure, requestPackage str
 	if err != nil {
 		return s.ResponseCode(SERVICE_EMPTY_BODY, err)
 	}
+	s.SetFlag = true
 	if s.Config.Service.ClientStore {
 		var clientStore *storage.Store
 		clientStore, err = storage.Open(s.Config.User.Name, s.Config.User.Dsn, s.Config.User.Options)
@@ -149,6 +169,7 @@ func (s *ServiceProcess) SetupService(c *configure.Configure, requestPackage str
 		}
 	} else {
 		s.Client, err = s.UserStore.FetchUserByLogin(s.RequestHead.Domain, s.RequestHead.Id)
+		s.UserStore.Release()
 	}
 	if err != nil {
 		return s.ResponseCode(SERVICE_EMPTY_BODY, err)
@@ -156,7 +177,7 @@ func (s *ServiceProcess) SetupService(c *configure.Configure, requestPackage str
 	s.ResponsePackage.SetSecret([]byte(s.Client.Salt))
 
 	// Confirm that the signature is good. We wait here so we can use the client record.
-	if !pack.GoodSignature() {
+	if !record.GoodSignature(pack) {
 		return s.ResponseCode("", ecode.ErrInvalidChecksum)
 	}
 	// Unpack the body. The body is defined as an interface, so we can do a check here.
@@ -167,6 +188,7 @@ func (s *ServiceProcess) SetupService(c *configure.Configure, requestPackage str
 		return s.ResponseCode(SERVICE_EMPTY_BODY, err)
 	}
 
+	fmt.Printf( "USER STORE: %+v\n" , s.UserStore )
 	s.ResponseOk("")
 	return nil
 }
@@ -174,7 +196,7 @@ func (s *ServiceProcess) SetupService(c *configure.Configure, requestPackage str
 // Allocate storage for all of the data in the structure. This will "reset" the storage
 // and let the service be re-used.
 func (s *ServiceProcess) Reset() *ServiceProcess {
-	s.ResponseHead = response.NewHead()
+	s.ResponseHead = head.New()
 	s.ResponsePackage = record.NewPackage()
 	s.Options = make(map[string]string)
 	return s
@@ -182,35 +204,46 @@ func (s *ServiceProcess) Reset() *ServiceProcess {
 
 // Perform any cleanup needed, closing any connections.
 func (s *ServiceProcess) Teardown() error {
-	s.UserStore.Release()
-	s.UserStore.Close()
+	if s.UserStore != nil && s.SetFlag {
+		s.UserStore.Release()
+		s.UserStore.Close()
+		s.SetFlag = false
+		s.UserStore = nil
+	}
 	return nil
+}
+
+// test will simply check that a package is correctly formatted, the key is valid and the
+// timestamp is correct. It then sends an OK message back. Most of the data checking is
+// done already in "Setup"
+func servicetest(s *ServiceProcess) *record.Package {
+	return s.ResponseOk("")
 }
 
 // register will register a new user into the main s.UserStore. This will package up the response into a common
 // response package after checking the integrity of the request.
 func register(s *ServiceProcess) *record.Package {
 	var err error
-	var eUpdate record.ErrSetter
+	var eUpdate mappers.ErrSetter
 
 	request, ok := s.RequestBody.(*request.Register)
 	if !ok {
 		return s.ResponseCode(SERVICE_EMPTY_BODY, ecode.ErrBadBody)
 	}
-	newUser := record.NewUser()
-	eUpdate.Set( newUser.SetDomain , s.Client.Domain )
-	eUpdate.Set( newUser.SetEmail  , request.Email )
-	eUpdate.Set( newUser.SetLoginName , request.Login)
-	eUpdate.Set( newUser.SetName, request.Name )
-	if err = eUpdate.Set( newUser.SetPassword , request.Password ); err != nil {
-		return s.ResponseCode(SERVICE_EMPTY_BODY , err )
+	newUser := tenant.NewUser()
+	eUpdate.Set(newUser.SetDomain, s.Client.Domain)
+	eUpdate.Set(newUser.SetEmail, request.Email)
+	eUpdate.Set(newUser.SetLoginName, request.Login)
+	eUpdate.Set(newUser.SetName, request.Name)
+	if err = eUpdate.Set(newUser.SetPassword, request.Password); err != nil {
+		return s.ResponseCode(SERVICE_EMPTY_BODY, err)
 	}
 
 	if err = s.UserStore.UserInsert(newUser); err != nil {
 		return s.ResponseCode(SERVICE_EMPTY_BODY, err)
 	}
 
-	returnUserJson, err := json.Marshal(record.NewReturnFromUser(newUser))
+	returnUserJson, err := json.Marshal(mappers.ResponseFromUser(response.NewUserReturn(), newUser))
 	if err != nil {
 		return s.ResponseCode(SERVICE_EMPTY_BODY, err)
 	}
@@ -240,7 +273,7 @@ func login(s *ServiceProcess) *record.Package {
 	if err = s.UserStore.UserUpdate(user); err != nil {
 		return s.ResponseCode(SERVICE_EMPTY_BODY, err)
 	}
-	returnUserJson, err := json.Marshal(record.NewReturnFromUser(user))
+	returnUserJson, err := json.Marshal(mappers.ResponseFromUser(response.NewUserReturn(), user))
 
 	if err != nil {
 		return s.Response(SERVICE_EMPTY_BODY, http.StatusInternalServerError, err.Error())
@@ -257,9 +290,6 @@ func logout(s *ServiceProcess) *record.Package {
 	var err error
 
 	logout, _ := s.RequestBody.(*request.Logout)
-	if s.UserStore == nil {
-		panic("The userstore is nil")
-	}
 
 	// Find the user - we have to use the TOKEN name for this
 	user, err := s.UserStore.UserFetch(s.Client.Domain, storage.FIELD_TOKEN, logout.Token)
@@ -320,7 +350,7 @@ func authenticate(s *ServiceProcess) *record.Package {
 // in the call which will stop updates from occurring.
 func update(s *ServiceProcess) *record.Package {
 	var err error
-	var eSetter record.ErrSetter
+	var eSetter mappers.ErrSetter
 	var updatedFields []string
 
 	update := s.RequestBody.(*request.Update)
@@ -349,7 +379,7 @@ func update(s *ServiceProcess) *record.Package {
 		updatedFields = append(updatedFields, "Email")
 	}
 	if eSetter.Err != nil {
-		return s.ResponseCode( "" , eSetter.Err )
+		return s.ResponseCode("", eSetter.Err)
 	}
 	if update.OldPassword != "" && update.NewPassword != "" && (s.boolOption(PERMIT_ALL) || s.boolOption(PERMIT_PASSWORD)) {
 		if err = user.ChangePassword(update.OldPassword, update.NewPassword); err != nil {
@@ -364,7 +394,7 @@ func update(s *ServiceProcess) *record.Package {
 		return s.ResponseCode("", err)
 	}
 
-	returnUserJson, err := json.Marshal(record.NewReturnFromUser(user))
+	returnUserJson, err := json.Marshal(mappers.ResponseFromUser(response.NewUserReturn(), user))
 	if err != nil {
 		return s.Response("", http.StatusInternalServerError, err.Error())
 	}
@@ -378,11 +408,9 @@ func (s *ServiceProcess) boolOption(key string) bool {
 // Return a response package based upon the caller, header, body and status code/message
 // This will pack up all the data for a simple response that can be sent using http/rpc/queue
 func (s *ServiceProcess) Response(jsonResponse string, returnCode int, statusMsg string) *record.Package {
-	s.ResponseHead.Message = statusMsg
-	s.ResponseHead.Code = returnCode
-
 	s.ResponsePackage.SetBodyString(jsonResponse)
 	s.ResponsePackage.SetHead(s.ResponseHead)
+	record.SignPackage( s. ResponsePackage )
 	s.ResponsePackage.ClearSecret()
 
 	return s.ResponsePackage

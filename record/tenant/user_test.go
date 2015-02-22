@@ -1,4 +1,4 @@
-package record
+package tenant
 
 import (
 	_ "github.com/cgentry/gus/encryption/drivers/plaintext"

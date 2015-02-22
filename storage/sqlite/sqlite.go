@@ -93,6 +93,9 @@ func (t *SqliteConn) Close() error {
 	}
 	err := t.db.Close()
 	t.db = nil
+	if err == nil {
+		return nil
+	}
 	return NewGeneralFromError(err, http.StatusInternalServerError)
 }
 

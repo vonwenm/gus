@@ -1,7 +1,7 @@
 // Copyright 2014 Charles Gentry. All rights reserved.
 // Please see the license included with this package
 
-package record
+package tenant
 
 import (
 	"crypto/md5"
@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	. "github.com/cgentry/gus/ecode"
+	"github.com/cgentry/gus/record/configure"
 	"github.com/cgentry/gus/encryption"
 	"time"
 )
@@ -20,8 +21,6 @@ const (
 	USER_PASSWD_TOO_SHORT    = iota
 	USER_PASSWORD_TOO_SIMPLE = iota
 )
-
-const USER_TIME_STR = time.RFC3339
 
 // Standard name for the user store.
 const USER_STORE_NAME = "User"
@@ -45,17 +44,20 @@ type UserControl struct {
 	TimeSinceAuthentication time.Duration
 }
 
+// SetMaxDuration will take a maximimum  time a user can have a session alive
 func (uc *UserControl) SetMaxDuration(interval string) (err error) {
 	uc.MaximumSessionDuration, err = time.ParseDuration(interval)
 	return err
 }
 
+// SetTimeout will take an interval string used to set the timeout required before an authentication must happen
 func (uc *UserControl) SetTimeout(interval string) (err error) {
 	uc.TimeSinceAuthentication, err = time.ParseDuration(interval)
 
 	return err
 }
 
+// UserInterface defines what is required for a user record.
 type UserInterface interface {
 	Login(string) error
 	Logout()
@@ -68,20 +70,20 @@ type UserInterface interface {
 // the data out to long-term storage (DB, File, etc.)
 type User struct {
 	Id       int
-	FullName string 	`name:"User's fullname" help:"User's full name (title, first, surname)"`
-	Email    string 	`name:"User's email address" help:"User's email address."`
-	IsSystem bool   	`name:"System user" help:"True if the this is a client otherwise a standard user"`
+	FullName string `name:"User's fullname" help:"User's full name (title, first, surname)"`
+	Email    string `name:"User's email address" help:"User's email address."`
+	IsSystem bool   `name:"System user" help:"True if the this is a client otherwise a standard user"`
 
-	Guid string 		`name:"User's GUID" help:"How the user is identified by this system. A unique key"`
+	Guid string `name:"User's GUID" help:"How the user is identified by this system. A unique key"`
 
-	Domain    string 	`name:"Domain" help:"The group that the user belongs to"`
-	LoginName string 	`name:"Login name" help:"The name the user uses to login with"`
-	Password  string 	`name:"Encrypted password" help:"This is the user's encrypted password."`
+	Domain    string `name:"Domain" help:"The group that the user belongs to"`
+	LoginName string `name:"Login name" help:"The name the user uses to login with"`
+	Password  string `name:"Encrypted password" help:"This is the user's encrypted password."`
 	Token     string // Generated at login-time
 
 	Salt string // Magic number used to hash values for user
 
-	IsActive   bool 	`name:"User is enabled"   help:"If disabled, the user will not be able to login"`
+	IsActive   bool `name:"User is enabled"   help:"If disabled, the user will not be able to login"`
 	IsLoggedIn bool // Is this user currently logged in
 
 	LoginAt      time.Time // Last login time
@@ -126,7 +128,7 @@ func (u *User) String() string {
 		u.IsLoggedIn,
 		u.IsActive,
 		u.GetTimeoutStr(),
-		time.Now().Format(USER_TIME_STR))
+		time.Now().Format(configure.USER_TIME_STR))
 
 }
 
@@ -163,7 +165,7 @@ func NewUser() *User {
 
 	user.SetDomain("")
 	user.Salt = CreateSalt(20)
-	user.Token = CreateSalt(20)		// Tokens need to be unique
+	user.Token = CreateSalt(20) // Tokens need to be unique
 	user.IsActive = true
 	user.IsLoggedIn = false
 	user.GenerateGuid()
@@ -277,7 +279,7 @@ func (user *User) ChangePassword(oldPassword, newPassword string) error {
 	if user.Authenticate(user.Token) == nil {
 		t := encryption.GetDriver()
 		if t.EncryptPassword(oldPassword, user.Salt) == user.Password {
-			if err := user.CheckNewPassword(newPassword); err != nil {
+			if err := CheckNewPassword(newPassword); err != nil {
 				return err
 			}
 			user.Password = t.EncryptPassword(newPassword, user.Salt)

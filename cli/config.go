@@ -215,7 +215,7 @@ func promptString(w io.Writer, r io.Reader, prompt string) (txt string, err erro
 	bin := bufio.NewReader(r)
 
 	fmt.Fprintf(w, "%s ", prompt)
-	txt,err = bin.ReadString('\n')
+	txt, err = bin.ReadString('\n')
 	//_, err := fmt.Fscanln(r, &txt)
 
 	if err != nil && err.Error() == `unexpected newline` {
@@ -233,7 +233,7 @@ func promptString(w io.Writer, r io.Reader, prompt string) (txt string, err erro
 func PromptStringDefault(w io.Writer, r io.Reader, prompt, defaultValue string) string {
 
 	prompt = fmt.Sprintf("%s\n  (enter='%s')? ", prompt, defaultValue)
-	txt,err := promptString(w,r,prompt)
+	txt, err := promptString(w, r, prompt)
 
 	if err == nil {
 		txt = strings.TrimSpace(txt)

@@ -15,18 +15,19 @@
 // prompts to help you configure the system.
 //
 package main
+
 import (
 	"encoding/json"
 	"flag"
+	"fmt"
 	"github.com/cgentry/gus/cli"
 	"github.com/cgentry/gus/record/configure"
 	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
-	"strings"
-	"fmt"
 	"runtime/debug"
+	"strings"
 )
 
 var configFileName string
@@ -74,7 +75,7 @@ func main() {
 			cmd.Flag.Usage = func() { cmd.Usage() }
 			if cmd.CustomFlags {
 				cmd.Run(cmd, args[1:])
-			}else{
+			} else {
 				cmd.Flag.Parse(args[1:])
 				args = cmd.Flag.Args()
 				cmd.Run(cmd, args)
@@ -126,19 +127,19 @@ func addCommonCommandFlags(cmd *cli.Command) {
 	cmd.Flag.StringVar(&configFileName, "c", DEFAULT_CONFIG_FILENAME, "")
 }
 
-func runtimeFail(msg string,err error) {
+func runtimeFail(msg string, err error) {
 	var rpt int
 	emsg := err.Error()
-	if  len( emsg) > len(msg ){
+	if len(emsg) > len(msg) {
 		rpt = len(emsg)
-	}else{
+	} else {
 		rpt = len(msg)
 	}
 
 	stars := strings.Repeat("*", rpt+4)
-	fmt.Fprintf(os.Stderr, "%s\n* %-*s *\n* %-*s *\n%s\n\n", stars, rpt,msg, rpt, emsg, stars)
+	fmt.Fprintf(os.Stderr, "%s\n* %-*s *\n* %-*s *\n%s\n\n", stars, rpt, msg, rpt, emsg, stars)
 	fmt.Fprintln(os.Stderr, "STACK TRACE:")
 	debug.PrintStack()
-	fmt.Fprintln(os.Stderr,"\n")
+	fmt.Fprintln(os.Stderr, "\n")
 	os.Exit(1)
 }

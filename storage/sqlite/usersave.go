@@ -13,7 +13,7 @@ import (
 	"database/sql"
 	"fmt"
 	. "github.com/cgentry/gus/ecode"
-	"github.com/cgentry/gus/record"
+	"github.com/cgentry/gus/record/tenant"
 	"net/http"
 	"strconv"
 	"strings"
@@ -24,7 +24,7 @@ var cmd_user_insert string
 
 // Update the database from the user record passed. The only fields that are not updated
 // are the CreatedAt and GUID fields. These are only set on an UserInsert call
-func (t *SqliteConn) UserUpdate(user *record.User) error {
+func (t *SqliteConn) UserUpdate(user *tenant.User) error {
 	if cmd_user_update == "" {
 		cmd_user_update = fmt.Sprintf(`UPDATE %s
 			 SET %s = ?,
@@ -47,7 +47,7 @@ func (t *SqliteConn) UserUpdate(user *record.User) error {
 			     %s = ?,
 			     %s = ?
            WHERE %s = ? `,
-			record.USER_STORE_NAME,
+			tenant.USER_STORE_NAME,
 
 			FIELD_DOMAIN,
 			FIELD_EMAIL,
@@ -115,14 +115,14 @@ func (t *SqliteConn) UserUpdate(user *record.User) error {
 // Higher level routines can use this to completely update portions of a record. This is NOT
 // atomic as the read/update routines do not lock records. This shouldn't be a problem for
 // most cases.
-func (t *SqliteConn) UserInsert(user *record.User) error {
+func (t *SqliteConn) UserInsert(user *tenant.User) error {
 
 	if cmd_user_insert == "" {
 		cmd_user_insert = fmt.Sprintf(
 			`INSERT INTO %s
 			(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
 		    VALUES (%s %s)`,
-			record.USER_STORE_NAME,
+			tenant.USER_STORE_NAME,
 
 			FIELD_DOMAIN,
 			FIELD_EMAIL,
@@ -209,7 +209,7 @@ func (t *SqliteConn) Release() error {
 	return nil
 }
 
-func (t *SqliteConn) checkUserExists(user *record.User) error {
+func (t *SqliteConn) checkUserExists(user *tenant.User) error {
 	var guid, domain, email, login sql.NullString
 
 	s := fmt.Sprintf(`SELECT
@@ -225,7 +225,7 @@ func (t *SqliteConn) checkUserExists(user *record.User) error {
 		FIELD_EMAIL,
 		FIELD_LOGINNAME,
 
-		record.USER_STORE_NAME, /* FROM ... */
+		tenant.USER_STORE_NAME, /* FROM ... */
 
 		FIELD_GUID, /* WHERE ... */
 		FIELD_DOMAIN,

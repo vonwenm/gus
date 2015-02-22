@@ -1,22 +1,38 @@
-package record
+// Mappers contains functions that will map an input to an output. These are
+// convenience functions that are gathered here to reduce the problem of circular references
+package mappers
 
-/*
- *  MapFieldToUser
- *		This will take a key/value pair and map the input name into
- *		our record. Values here can be strings, integers or booleans.
- *
- *  See:
- *		user.go			- record definition
- *		usersetter.go	- Setters for value
- */
 import (
-	"errors"
-	"strconv"
+	"github.com/cgentry/gus/record/tenant"
+	"github.com/cgentry/gus/record/response"
 	"strings"
+	"strconv"
+	"errors"
 )
 
-// Map commonly used names to fields within the user record
-func (user *User) MapFieldToUser(key, value string) (found bool, rtn error) {
+//ResponseFromUser takes a user record and copies the relevant fields from the
+// user's record.
+func ResponseFromUser(rtn *response.UserReturn , user *tenant.User ) * response.UserReturn {
+
+	rtn.Guid = user.Guid
+	rtn.Token = user.Token
+
+	rtn.LoginAt = user.LoginAt
+	rtn.LastAuthAt = user.LastAuthAt
+	rtn.CreatedAt = user.CreatedAt
+	rtn.TimeoutAt = user.TimeoutAt
+	rtn.MaxSessionAt = user.MaxSessionAt
+
+	rtn.FullName = user.FullName
+	rtn.Email = user.Email
+	rtn.LoginName = user.LoginName
+
+	return rtn
+}
+
+
+// UserField will find map a fieldname to a user record and save the field in the record
+func UserField( user * tenant.User, key, value string) (found bool, rtn error) {
 
 	iValue := 0
 	found = true
@@ -91,4 +107,34 @@ func (user *User) MapFieldToUser(key, value string) (found bool, rtn error) {
 
 	}
 	return
+}
+
+
+/**
+ * Create a record from the user record passed to this routine
+ * See:		UserReturn
+ */
+func UserFromCli( rtn * tenant.User , r * tenant.UserCli ) (ortn *tenant.User, err error) {
+
+	ortn = rtn
+	if err = rtn.SetDomain(r.Domain); err != nil {
+		return
+	}
+	if err = rtn.SetName(r.FullName); err != nil {
+		return
+	}
+	if err = rtn.SetEmail(r.Email); err != nil {
+		return
+	}
+	if err = rtn.SetLoginName(r.LoginName); err != nil {
+		return
+	}
+	if err = rtn.SetPassword(r.Password); err != nil {
+		return
+	}
+	rtn.SetIsActive(r.Enable)
+	err = rtn.SetIsSystem(r.Level == "client")
+
+	return
+
 }

@@ -5,13 +5,13 @@
 package logit
 
 import (
-	"strings"
+//"strings"
 )
 
 // The interface gives the set of methods that an encryption driver must implement.
 type LogitDriver interface {
 	Open() LogitDriver
-	Write(level int, logval ...interface{} )
+	Write(level int, logval ...interface{})
 	Close()
 
 	Id() string
@@ -30,6 +30,7 @@ const driver_name = "Logit"
 func GetMap() map[string]LogitDriver {
 	return driverMap
 }
+
 // Determine if a driver is registered or not. This encapsulates the map and simply returns a boolean flag.
 func IsRegistered(name string) bool {
 	_, ok := driverMap[name]
@@ -50,7 +51,10 @@ func Register(driver LogitDriver) {
 
 // Pick a registered driver for use in the system. Only one driver can be selected at a time.
 func Select(name string) LogitDriver {
-	if driver, found := driverMap[name]; !found {
+	var driver LogitDriver
+	var found bool
+
+	if driver, found = driverMap[name]; !found {
 		panic(driver_name + " driver: '" + name + "'. Name not found")
 	}
 	if driverSelect != "" {
@@ -63,7 +67,7 @@ func Select(name string) LogitDriver {
 }
 
 // GetEncryption will return the driver class associated with the current driver setup
-func GetDriver() (driver EncryptDriver) {
+func GetDriver() (driver LogitDriver) {
 	var found bool
 
 	if driverSelect != "" {
@@ -80,4 +84,3 @@ func GetDriver() (driver EncryptDriver) {
 	panic(driver_name + " driver: Nothing registered")
 
 }
-

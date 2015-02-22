@@ -2,13 +2,13 @@ package plaintext
 
 import (
 	"github.com/cgentry/gus/encryption"
-	"github.com/cgentry/gus/record"
+	"github.com/cgentry/gus/record/tenant"
 	"testing"
 )
 
 func TestGenerate(t *testing.T) {
 
-	user := record.NewTestUser()
+	user := tenant.NewTestUser()
 	expected := "hello;" + user.Salt + ";SALT;Plaintext"
 	pwd := encryption.GetDriver().EncryptPassword("hello", user.Salt)
 	if pwd != expected {
@@ -17,7 +17,7 @@ func TestGenerate(t *testing.T) {
 }
 
 func TestRepeatable(t *testing.T) {
-	user := record.NewTestUser()
+	user := tenant.NewTestUser()
 	pwd := encryption.GetDriver().EncryptPassword("123456", user.Salt)
 	pwd2 := encryption.GetDriver().EncryptPassword("123456", user.Salt)
 	if pwd != pwd2 {
@@ -27,7 +27,7 @@ func TestRepeatable(t *testing.T) {
 }
 
 func TestIsLongEnough(t *testing.T) {
-	user := record.NewTestUser()
+	user := tenant.NewTestUser()
 	pwd := encryption.GetDriver().EncryptPassword("hello", user.Salt)
 	pwdLen := len(pwd)
 	sbLen := len("hello;" + user.Salt + ";SALT;Plaintext")
@@ -37,9 +37,9 @@ func TestIsLongEnough(t *testing.T) {
 }
 
 func TestSimilarUserDifferntPwd(t *testing.T) {
-	user := record.NewTestUser()
+	user := tenant.NewTestUser()
 	pwd := encryption.GetDriver().EncryptPassword("123456", user.Salt)
-	user2 := record.NewTestUser()
+	user2 := tenant.NewTestUser()
 	pwd2 := encryption.GetDriver().EncryptPassword("123456", user2.Salt)
 	if pwd == pwd2 {
 		t.Errorf("Passwords for different users should not match: '%s' and '%s'", pwd, pwd2)
@@ -47,7 +47,7 @@ func TestSimilarUserDifferntPwd(t *testing.T) {
 }
 
 func TestAfterChangingSalt(t *testing.T) {
-	user := record.NewTestUser()
+	user := tenant.NewTestUser()
 	pwd := encryption.GetDriver().EncryptPassword("123456", user.Salt)
 	encryption.GetDriver().Setup(`{ "Salt": "hello - this should screw up password" }`)
 	pwd2 := encryption.GetDriver().EncryptPassword("123456", user.Salt)

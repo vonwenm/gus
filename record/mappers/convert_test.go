@@ -1,7 +1,8 @@
-package record
+package mappers
 
 import (
 	. "github.com/smartystreets/goconvey/convey"
+	"github.com/cgentry/gus/record/configure"
 	"testing"
 )
 
@@ -37,7 +38,7 @@ func TestConversions(t *testing.T) {
 		now := StrToTime(nowStr)
 
 		So(now.IsZero(), ShouldBeFalse)
-		So(now.Format(USER_TIME_STR), ShouldEqual, `2014-12-29T12:37:36Z`)
+		So(now.Format(configure.USER_TIME_STR), ShouldEqual, `2014-12-29T12:37:36Z`)
 	})
 
 	Convey("Check StrToTime - bad values", t, func() {

@@ -1,22 +1,23 @@
-package record
+package mappers
 
 import (
 	"strconv"
 	"strings"
 	"time"
+	"github.com/cgentry/gus/record/configure"
 )
+
 type ErrSetter struct {
 	Err error
 }
-type ErrFunctionSetter func( string ) error
+type ErrFunctionSetter func(string) error
 
-func ( e * ErrSetter ) Set(setter ErrFunctionSetter , val string ) error {
+func (e *ErrSetter) Set(setter ErrFunctionSetter, val string) error {
 	if e.Err == nil {
-		e.Err = setter( val )
+		e.Err = setter(val)
 	}
 	return e.Err
 }
-
 
 func StrToBool(val string, defaultVal bool) bool {
 
@@ -34,7 +35,7 @@ func StrToBool(val string, defaultVal bool) bool {
 }
 
 func StrToTime(t string) time.Time {
-	if val, err := time.Parse(USER_TIME_STR, t); err == nil {
+	if val, err := time.Parse(configure.USER_TIME_STR, t); err == nil {
 		return val
 	}
 
