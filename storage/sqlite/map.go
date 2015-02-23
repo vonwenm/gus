@@ -5,8 +5,8 @@ package sqlite
 
 import (
 	"database/sql"
-	"github.com/cgentry/gus/record/tenant"
 	"github.com/cgentry/gus/record/mappers"
+	"github.com/cgentry/gus/record/tenant"
 )
 
 func mapColumnsToUser(rows *sql.Rows) []*tenant.User {
@@ -29,7 +29,7 @@ func mapColumnsToUser(rows *sql.Rows) []*tenant.User {
 			val := values[i]
 			if b, ok := val.([]byte); ok {
 				vstr = string(b)
-				mappers.UserField(user,col, vstr)
+				mappers.UserField(user, col, vstr)
 			} // End columns
 
 			allUsers = append(allUsers, user)

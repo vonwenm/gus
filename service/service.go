@@ -5,6 +5,7 @@ package service
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/cgentry/gus/ecode"
 	"github.com/cgentry/gus/record"
 	"github.com/cgentry/gus/record/configure"
@@ -16,7 +17,6 @@ import (
 	"github.com/cgentry/gus/storage"
 	"net/http"
 	"strings"
-	"fmt"
 )
 
 // Permissions for updating
@@ -58,9 +58,9 @@ type ServiceProcess struct {
 	Client *tenant.User
 
 	// Header for response we are sending back.
-	ResponseHead * head.Head
+	ResponseHead *head.Head
 	// Record package - this is what will be returned from any of the calls.
-	ResponsePackage *record.Package
+	ResponsePackage record.Packer
 
 	// Datastore for user records. The clientstore, if separate, is not stored as it is
 	// only needed once to access the client record.
@@ -76,7 +76,7 @@ func NewServiceRegister() *ServiceProcess {
 	r := &ServiceProcess{
 		Run:         register,
 		RequestBody: &request.Register{},
-		SetFlag : false,
+		SetFlag:     false,
 	}
 	return r.Reset()
 }
@@ -130,20 +130,20 @@ func NewServiceTest() *ServiceProcess {
 
 // Setup the service structure for common values required.  This will take the request package and
 // unpack it into the header and service-specific body.
-func (s *ServiceProcess) SetupService(c *configure.Configure, requestPackage string) *record.Package {
+func (s *ServiceProcess) SetupService(c *configure.Configure, requestPackage string) record.Packer {
 	var err error
 
 	// Unpack the incoming request, saving the body and header in our structure.
 	// ensure the package has all of the required elements.
 	pack := record.NewPackage()
 	if err = json.Unmarshal([]byte(requestPackage), pack); err != nil {
-		return s.ResponseCode( err.Error() , ecode.ErrBadPackage)
+		return s.ResponseCode(err.Error(), ecode.ErrBadPackage)
 	}
 
 	if !pack.IsPackageComplete() {
 		return s.ResponseCode(`"{"Message": "Package is not complete"}`, ecode.ErrBadPackage)
 	}
-	s.RequestHead,_= pack.GetHead().(*head.Head)
+	s.RequestHead, _ = pack.GetHead().(*head.Head)
 	s.ResponseHead.Sequence = s.RequestHead.Sequence
 	s.ResponseHead.Id = s.RequestHead.Id
 	if err = s.RequestHead.Check(); err != nil {
@@ -178,17 +178,17 @@ func (s *ServiceProcess) SetupService(c *configure.Configure, requestPackage str
 
 	// Confirm that the signature is good. We wait here so we can use the client record.
 	if !record.GoodSignature(pack) {
-		return s.ResponseCode("", ecode.ErrInvalidChecksum)
+		return s.PackageErr(ecode.ErrInvalidChecksum)
 	}
 	// Unpack the body. The body is defined as an interface, so we can do a check here.
-	if err = json.Unmarshal([]byte(pack.Body), s.RequestBody); err != nil {
+	if err = json.Unmarshal([]byte(pack.GetBody()), s.RequestBody); err != nil {
 		return s.ResponseCode(SERVICE_EMPTY_BODY, ecode.ErrBadBody)
 	}
 	if err = s.RequestBody.Check(); err != nil {
 		return s.ResponseCode(SERVICE_EMPTY_BODY, err)
 	}
 
-	fmt.Printf( "USER STORE: %+v\n" , s.UserStore )
+	fmt.Printf("USER STORE: %+v\n", s.UserStore)
 	s.ResponseOk("")
 	return nil
 }
@@ -217,7 +217,8 @@ func (s *ServiceProcess) Teardown() error {
 // timestamp is correct. It then sends an OK message back. Most of the data checking is
 // done already in "Setup"
 func servicetest(s *ServiceProcess) *record.Package {
-	return s.ResponseOk("")
+	s.ResponsePackage.SetBodyMarshal( response.NewAck(`test`) )
+	return s.PackageOk()
 }
 
 // register will register a new user into the main s.UserStore. This will package up the response into a common
@@ -243,11 +244,11 @@ func register(s *ServiceProcess) *record.Package {
 		return s.ResponseCode(SERVICE_EMPTY_BODY, err)
 	}
 
-	returnUserJson, err := json.Marshal(mappers.ResponseFromUser(response.NewUserReturn(), newUser))
+	err = s.ResponsePackage.SetBodyMarshal(mappers.ResponseFromUser(response.NewUserReturn(), newUser) )
 	if err != nil {
 		return s.ResponseCode(SERVICE_EMPTY_BODY, err)
 	}
-	return s.ResponseOk(string(returnUserJson))
+	return s.PackageOk()
 
 }
 
@@ -273,14 +274,11 @@ func login(s *ServiceProcess) *record.Package {
 	if err = s.UserStore.UserUpdate(user); err != nil {
 		return s.ResponseCode(SERVICE_EMPTY_BODY, err)
 	}
-	returnUserJson, err := json.Marshal(mappers.ResponseFromUser(response.NewUserReturn(), user))
-
+	err = s.ResponsePackage.SetBodyMarshal(mappers.ResponseFromUser(response.NewUserReturn(), user) )
 	if err != nil {
-		return s.Response(SERVICE_EMPTY_BODY, http.StatusInternalServerError, err.Error())
+		return s.ResponseCode(SERVICE_EMPTY_BODY, err)
 	}
-
-	return s.ResponseOk(string(returnUserJson))
-
+	return s.PackageOk()
 }
 
 // ServiceLogout will logout the user that is currently logged in. Only the token is required for this operation.
@@ -309,7 +307,11 @@ func logout(s *ServiceProcess) *record.Package {
 	if err = s.UserStore.UserUpdate(user); err != nil {
 		return s.ResponseCode("", err)
 	}
-	return s.ResponseOk("")
+	err = s.ResponsePackage.SetBodyMarshal( response.NewAck(`logout`) )
+	if err != nil {
+		return s.ResponseCode(SERVICE_EMPTY_BODY, err)
+	}
+	return s.PackageOk()
 }
 
 // Authenticate will check to see if the user is logged in and then mark the record as updated. This should
@@ -336,7 +338,8 @@ func authenticate(s *ServiceProcess) *record.Package {
 	if err = s.UserStore.UserUpdate(user); err != nil {
 		return s.ResponseCode("", err)
 	}
-	return s.ResponseOk("")
+	s.ResponsePackage.SetBodyMarshal( response.NewAck(`logout`) )
+	return s.PackageOk()
 }
 
 // Update is the catch-all for updating the record. The fields that can be updated through THIS call
@@ -405,12 +408,27 @@ func (s *ServiceProcess) boolOption(key string) bool {
 	return ok
 }
 
+/*
+ *            RESPONSE ROUTINES:
+ *				package up any responses and return to caller
+ */
+
+func ( s *ServiceProcess) PackageOk() record.Packer {
+	record.SignPackage( s.ResponsePackage )
+	return s.ResponsePackage
+}
+
+
+func ( s *ServiceProcess ) PackageErr( err Error ) record.Packer {
+	s.ResponsePackage.SetBodyMarshal( err )
+	return s.ResponsePackage
+}
 // Return a response package based upon the caller, header, body and status code/message
 // This will pack up all the data for a simple response that can be sent using http/rpc/queue
 func (s *ServiceProcess) Response(jsonResponse string, returnCode int, statusMsg string) *record.Package {
 	s.ResponsePackage.SetBodyString(jsonResponse)
 	s.ResponsePackage.SetHead(s.ResponseHead)
-	record.SignPackage( s. ResponsePackage )
+	record.SignPackage(s.ResponsePackage)
 	s.ResponsePackage.ClearSecret()
 
 	return s.ResponsePackage

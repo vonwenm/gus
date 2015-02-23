@@ -1,9 +1,9 @@
 package mappers
 
 import (
-	. "github.com/smartystreets/goconvey/convey"
-	"github.com/cgentry/gus/record/tenant"
 	"github.com/cgentry/gus/record/configure"
+	"github.com/cgentry/gus/record/tenant"
+	. "github.com/smartystreets/goconvey/convey"
 	"testing"
 	"time"
 )

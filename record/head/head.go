@@ -13,9 +13,10 @@ import (
 //
 type HeaderInterface interface {
 	IsTimeSet() bool
-	GetSignature() []byte
+	GetSignature() ( []byte , error )
 	SetSignature([]byte)
 	Check() error
+	IsSignatureSet() bool
 }
 
 // Head implements the record.HeaderInterface
@@ -33,7 +34,7 @@ type Head struct {
 func New() *Head {
 	h := new(Head)
 	h.Timestamp = stamp.New()
-	h.SetStamp( time.Now() )
+	h.SetStamp(time.Now())
 	h.Signature = signature.New()
 	return h
 }
@@ -66,6 +67,7 @@ func (h *Head) Check() error {
 
 // Convert the Head value to a string
 func (h *Head) String() string {
+	sig,_ := h.Signature.GetSignature()
 	return fmt.Sprintf("Domain: '%s', Id: '%s', Time: '%v', Signature: '%s', Set? %v",
-		h.Domain, h.Id, h.Timestamp, string(h.Signature.GetSignature()), h.IsTimeSet())
+		h.Domain, h.Id, h.Timestamp, sig, h.IsTimeSet())
 }

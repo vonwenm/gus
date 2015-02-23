@@ -22,9 +22,13 @@ func TestNewHead(t *testing.T) {
 func TestGetSignature(t *testing.T) {
 	Convey("Set and test signature values", t, func() {
 		h := New()
-		So(string(h.GetSignature()), ShouldBeBlank)
+			sig,err := h.GetSignature()
+			So( err, ShouldBeNil )
+			So(string(sig), ShouldBeBlank)
 		h.SetSignature([]byte("abcdef"))
-		So(string(h.GetSignature()), ShouldEqual, "abcdef")
+			sig,err = h.GetSignature()
+			So( err, ShouldBeNil )
+		So(string(sig), ShouldEqual, "abcdef")
 	})
 }
 func TestCheckheader(t *testing.T) {

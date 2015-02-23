@@ -3,7 +3,6 @@ package record
 import (
 	"crypto/hmac"
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/json"
 	"github.com/cgentry/gus/record/head"
 	"reflect"
@@ -14,7 +13,7 @@ type BodyInterface interface {
 }
 
 type Packer interface {
-	SetBodyMarshal(interface{})  error
+	SetBodyMarshal(interface{}) error
 	SetBody(string)
 	SetHead(head.HeaderInterface)
 	SetSecret([]byte)
@@ -27,48 +26,44 @@ type Packer interface {
 	IsPackageComplete() bool
 	IsHeadSet() bool
 	IsBodySet() bool
-
 }
-
 
 // Compute signature creates an HMAC signed signature, using sha256, of the body of
 // the request. The request is a JSON encoded string and the secret must be held in
 // the key. The key should be the secret key of the ID stored in the header.
-func computeSignature( p Packer ) []byte {
+func computeSignature(p Packer) (sig []byte) {
 	secret := p.GetSecret()
 	if secret != nil {
 		mac := hmac.New(sha256.New, secret)
 		mac.Write([]byte(p.GetBody()))
-		sig := []byte( base64.StdEncoding.EncodeToString( mac.Sum(nil) ))
-		p.GetHead().SetSignature( sig  )
+		sig = mac.Sum(nil)
 	}
-	return []byte(``)
+	return sig
 }
 
 // Check to see if the signature in the header is valid.
-func  GoodSignature(p Packer) bool {
-	if nil != p.GetSecret() {
-		if sig := p.GetHead().GetSignature(); sig != nil {
-			var headSignature []byte
-			if _, err := base64.StdEncoding.Decode( headSignature , p.GetSecret()); err == nil {
-				return hmac.Equal(headSignature, computeSignature(p))
-			}
+func GoodSignature(p Packer) bool {
+	secret := p.GetSecret()
+	if nil != secret && p.GetHead().IsSignatureSet() {
+		sig, err := p.GetHead().GetSignature()
+		if err == nil {
+			return hmac.Equal(sig, computeSignature(p))
 		}
 	}
 
 	return false
 }
 
-func SignPackage( p *Package ) {
-	p.GetHead().SetSignature( computeSignature( p ) )
-
+// SignPackage with a base64-encoded HMAC of the body contents.
+func SignPackage(p Packer) {
+	p.GetHead().SetSignature(computeSignature(p))
+	return
 }
-
 
 // Package describes what is coming from a request. It is similar to, but different from,
 // the response package. It conforms to the Packer interface
 type Package struct {
-	Version float32
+	Version  float32
 	BodyType string
 
 	Head   head.HeaderInterface
@@ -78,11 +73,11 @@ type Package struct {
 }
 
 // NewPackage creates a new package and returns the address to the caller.
-func NewPackage() *Package {
+func NewPackage() Packer {
 	return &Package{
-		Head: head.New(),
-		Body: "{}",
-		Version: 1.0,
+		Head:     head.New(),
+		Body:     "{}",
+		Version:  1.0,
 		BodyType: "empty",
 	}
 }
@@ -96,55 +91,56 @@ func (p *Package) IsPackageComplete() bool {
 func (p *Package) IsHeadSet() bool {
 	return p.Head != nil && p.Head.IsTimeSet()
 }
+
 // IsBodySet checks to see if the body is blank or not
 func (p *Package) IsBodySet() bool {
 	return p.Body != ""
 }
 
-
 // Return the HEAD of the package
-func ( p * Package ) GetHead() head.HeaderInterface {
+func (p *Package) GetHead() head.HeaderInterface {
 	return p.Head
 }
+
 // SetHead will copy the head to our head, then sign the package if it is complete.
-func ( p * Package ) SetHead(head head.HeaderInterface )  {
+func (p *Package) SetHead(head head.HeaderInterface) {
 	p.Head = head
 	return
 }
 
 // GetBody returns the body string
-func ( p * Package ) GetBody() string {
+func (p *Package) GetBody() string {
 	return p.Body
 }
 
-func ( p * Package ) SetBodyMarshal( body interface{} ) ( err error ) {
+func (p *Package) SetBodyMarshal(body interface{}) (err error) {
 	var byteBody []byte
 	p.BodyType = reflect.TypeOf(body).String()
-	byteBody, err = json.Marshal( body )
+	byteBody, err = json.Marshal(body)
 	if err == nil {
-		p.Body = string( byteBody )
+		p.Body = string(byteBody)
 	}
 	return
 }
+
 // SetBody returns the value that is in the body. If the package is complete, it will be signed.
-func ( p * Package ) SetBody(body string )  {
+func (p *Package) SetBody(body string) {
 	p.Body = body
 	return
 }
 
 // GetSecret returns the secret used to sign the package
-func (p *Package ) GetSecret() []byte {
+func (p *Package) GetSecret() []byte {
 	return p.secret
 }
 
 // SetSecret sets the secret used to sign the package
-func ( p *Package ) SetSecret(s []byte ) {
+func (p *Package) SetSecret(s []byte) {
 	p.secret = s
 	return
 }
 
-func ( p *Package ) ClearSecret(){
-	p.secret = []byte(``)
+func (p *Package) ClearSecret() {
+	p.secret = nil
 	return
 }
-

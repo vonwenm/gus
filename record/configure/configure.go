@@ -9,7 +9,6 @@ import (
 	"time"
 )
 
-
 var UnixTimeZero = time.Unix(0, 0)
 
 const TIMESTAMP_EXPIRATION = 120 // seconds

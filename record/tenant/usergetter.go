@@ -1,8 +1,8 @@
 package tenant
 
 import (
-	"strconv"
 	"github.com/cgentry/gus/record/configure"
+	"strconv"
 )
 
 func (user *User) GetID() int {

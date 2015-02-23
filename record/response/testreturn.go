@@ -5,15 +5,14 @@ import (
 	"time"
 )
 
-type Register struct {
+type Ack struct {
 	stamp.Timestamp
-	Login   string
-	Token   string
-	Expires time.Time
+	Request	string
 }
 
-func NewRegister() *Register {
-	rtn := &Register{}
+func NewAck( op string ) *Ack {
+	rtn := &Ack{}
 	rtn.SetStamp(time.Now())
+	rtn.Request = op
 	return rtn
 }

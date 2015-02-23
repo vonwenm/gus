@@ -1,10 +1,10 @@
 package mappers
 
 import (
+	"github.com/cgentry/gus/record/configure"
 	"strconv"
 	"strings"
 	"time"
-	"github.com/cgentry/gus/record/configure"
 )
 
 type ErrSetter struct {

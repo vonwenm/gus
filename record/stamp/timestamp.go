@@ -26,7 +26,7 @@ func (t *Timestamp) GetStamp() time.Time {
 
 // Set the time stamp to the time passed to the function.
 func (t *Timestamp) SetStamp(when time.Time) {
-		t.Stamp = when
+	t.Stamp = when
 	return
 }
 

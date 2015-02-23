@@ -1,8 +1,8 @@
 package tenant
 
 import (
-	. "github.com/smartystreets/goconvey/convey"
 	"github.com/cgentry/gus/record/configure"
+	. "github.com/smartystreets/goconvey/convey"
 	"testing"
 	"time"
 )

@@ -1,19 +1,19 @@
 package web
 
 import (
-	"github.com/cgentry/gus/record/configure"
-	"github.com/cgentry/gus/storage"
-	"github.com/cgentry/gus/service"
+	"bytes"
+	"encoding/json"
 	"github.com/cgentry/gus/record"
+	"github.com/cgentry/gus/record/configure"
 	"github.com/cgentry/gus/record/request"
+	"github.com/cgentry/gus/service"
+	"github.com/cgentry/gus/storage"
 	_ "github.com/cgentry/gus/storage/mock"
 	. "github.com/smartystreets/goconvey/convey"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"encoding/json"
-	"bytes"
 )
 
 func TestParseParms(t *testing.T) {
@@ -74,11 +74,11 @@ func TestParseParms(t *testing.T) {
 			w := New(c)
 
 			// Fill in a client record
-			store,_ := storage.Open( "mock", "", "")
+			store, _ := storage.Open("mock", "", "")
 
 			user := record.NewTestUser()
 			user.IsSystem = true
-			store.UserInsert( user )
+			store.UserInsert(user)
 
 			// Create a "test" request. This requires a few fields
 			pack := record.NewPackage()
@@ -86,15 +86,15 @@ func TestParseParms(t *testing.T) {
 			head.Domain = user.Domain
 			head.Id = user.LoginName
 			body := request.NewTest()
-			pack.SetHead( head )
-			pack.SetBody( body )
-			rqstBody,err := json.Marshal( pack )
-			So( err, ShouldBeNil )
+			pack.SetHead(head)
+			pack.SetBody(body)
+			rqstBody, err := json.Marshal(pack)
+			So(err, ShouldBeNil)
 
 			serve := httptest.NewServer(w.CreateHandlerFunc(SRV_TEST, testMap[SRV_TEST]))
 			defer serve.Close()
-			buff := bytes.NewBuffer( rqstBody )
-			res, err := http.Post(serve.URL + "/test/" , "text/json", buff )
+			buff := bytes.NewBuffer(rqstBody)
+			res, err := http.Post(serve.URL+"/test/", "text/json", buff)
 
 			So(err, ShouldBeNil)
 			pingTxt, err := ioutil.ReadAll(res.Body)

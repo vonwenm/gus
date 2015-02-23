@@ -1,8 +1,8 @@
 package response
 
 import (
-	"time"
 	"github.com/cgentry/gus/record/stamp"
+	"time"
 )
 
 // User will contain the USER's minimum data from any operation operation.
@@ -24,12 +24,12 @@ type UserReturn struct {
 	CreatedAt time.Time // When the user was created
 }
 
-func NewUserReturn( ) *UserReturn  {
+func NewUserReturn() *UserReturn {
 	rtn := &UserReturn{}
-	rtn.SetStamp( time.Now() )
+	rtn.SetStamp(time.Now())
 
 	return rtn
 }
-func ( u *UserReturn ) Check() error {
+func (u *UserReturn) Check() error {
 	return nil
 }

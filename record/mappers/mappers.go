@@ -3,16 +3,16 @@
 package mappers
 
 import (
-	"github.com/cgentry/gus/record/tenant"
-	"github.com/cgentry/gus/record/response"
-	"strings"
-	"strconv"
 	"errors"
+	"github.com/cgentry/gus/record/response"
+	"github.com/cgentry/gus/record/tenant"
+	"strconv"
+	"strings"
 )
 
 //ResponseFromUser takes a user record and copies the relevant fields from the
 // user's record.
-func ResponseFromUser(rtn *response.UserReturn , user *tenant.User ) * response.UserReturn {
+func ResponseFromUser(rtn *response.UserReturn, user *tenant.User) *response.UserReturn {
 
 	rtn.Guid = user.Guid
 	rtn.Token = user.Token
@@ -30,9 +30,8 @@ func ResponseFromUser(rtn *response.UserReturn , user *tenant.User ) * response.
 	return rtn
 }
 
-
 // UserField will find map a fieldname to a user record and save the field in the record
-func UserField( user * tenant.User, key, value string) (found bool, rtn error) {
+func UserField(user *tenant.User, key, value string) (found bool, rtn error) {
 
 	iValue := 0
 	found = true
@@ -109,12 +108,11 @@ func UserField( user * tenant.User, key, value string) (found bool, rtn error) {
 	return
 }
 
-
 /**
  * Create a record from the user record passed to this routine
  * See:		UserReturn
  */
-func UserFromCli( rtn * tenant.User , r * tenant.UserCli ) (ortn *tenant.User, err error) {
+func UserFromCli(rtn *tenant.User, r *tenant.UserCli) (ortn *tenant.User, err error) {
 
 	ortn = rtn
 	if err = rtn.SetDomain(r.Domain); err != nil {

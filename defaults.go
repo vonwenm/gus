@@ -19,5 +19,3 @@ const (
 	DEFAULT_CONFIG_FILENAME    = "/etc/gus/config.json"
 	DEFAULT_CONFIG_PERMISSIONS = 0600
 )
-
-

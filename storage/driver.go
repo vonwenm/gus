@@ -74,7 +74,7 @@ type Storer interface {
 	Release() error
 	Reset()
 
-	FetchUserByEmail(domain, email string)(*tenant.User, error)
+	FetchUserByEmail(domain, email string) (*tenant.User, error)
 	FetchUserByGuid(guid string) (*tenant.User, error)
 	FetchUserByLogin(domain, loginName string) (*tenant.User, error)
 	FetchUserByToken(token string) (*tenant.User, error)
@@ -82,6 +82,7 @@ type Storer interface {
 	UserInsert(user *tenant.User) error
 	UserUpdate(user *tenant.User) error
 }
+
 // Store holds the state for any storage driver. It allows you to have
 // consistent returns, such as getting the last error, discovering how
 // a connection was made (connectString) or the name of the driver (name)
@@ -129,7 +130,7 @@ func (s *Store) LastError() error {
 	return s.lastError
 }
 
-func ( s *Store )SetLastError( err error ) *Store {
+func (s *Store) SetLastError(err error) *Store {
 	s.lastError = err
 	return s
 }
@@ -152,7 +153,7 @@ func (s *Store) saveLastError(e error) error {
 
 // Reset any errors or intermediate conditions
 func (s *Store) Reset() {
-	s.SetLastError( nil )
+	s.SetLastError(nil)
 	if reseter, found := s.connection.(Reseter); found {
 		reseter.Reset()
 	}
@@ -161,9 +162,9 @@ func (s *Store) Reset() {
 
 // Release any locks or memory
 func (s *Store) Release() error {
-	s.SetLastError( nil )
+	s.SetLastError(nil)
 	if release, found := s.connection.(Releaser); found {
-		s.SetLastError(  release.Release() )
+		s.SetLastError(release.Release())
 	}
 	return s.LastError()
 }
