@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"github.com/cgentry/gus/cli"
 	"github.com/cgentry/gus/encryption"
-	"github.com/cgentry/gus/record"
 	"github.com/cgentry/gus/record/configure"
+	"github.com/cgentry/gus/record/mappers"
+	"github.com/cgentry/gus/record/tenant"
 	"github.com/cgentry/gus/storage"
 	"os"
 )
@@ -47,10 +48,10 @@ but not enabled.
 `,
 }
 
-var cmdUserCli *record.UserCli
+var cmdUserCli *tenant.UserCli
 
 func init() {
-	cmdUserCli = record.NewUserCli()
+	cmdUserCli = tenant.NewUserCli()
 
 	cmdUser.Run = runUser
 	addCommonCommandFlags(cmdUser)
@@ -114,7 +115,7 @@ func runUserAdd(cmd *cli.Command, args []string) {
 		cli.PrintStructValue(os.Stdout, cmdUserCli)
 		promptForValues = cli.PromptYesNoDefault(os.Stdout, os.Stdin, "Re-enter values", false)
 	}
-	urec, err := cmdUserCli.NewUser()
+	urec, err := mappers.UserFromCli(tenant.NewUser(), cmdUserCli)
 	if err != nil {
 		runtimeFail("Creating user record from input", err)
 	}
@@ -206,7 +207,7 @@ func setUserEnableFlag(newFlag bool) {
 }
 
 // Find a user record either by email or login. If no error, print the message and exit.
-func getUserRecordByCli(store *storage.Store, rec *record.UserCli) (userRec *record.User) {
+func getUserRecordByCli(store *storage.Store, rec *tenant.UserCli) (userRec *tenant.User) {
 	var err error
 	if rec.Email != "" {
 		userRec, err = store.FetchUserByEmail(rec.Domain, rec.Email)

@@ -94,6 +94,6 @@ const DEFAULT_CONFIG = `{
   },
   "Encrypt" : {
   	"Name" : "bcrypt",
-  	"Options" : "{ Salt: \"##salt##\" }"
+  	"Options" : "{ \"Salt\": \"##salt##\" }"
   	}
 }`

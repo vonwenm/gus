@@ -6,6 +6,11 @@ import (
 	"encoding/json"
 	"github.com/cgentry/gus/record/head"
 	"reflect"
+	"strings"
+)
+
+const (
+	PACKAGE_BODYTYPE_ERROR = "Error"
 )
 
 type BodyInterface interface {
@@ -15,6 +20,7 @@ type BodyInterface interface {
 type Packer interface {
 	SetBodyMarshal(interface{}) error
 	SetBody(string)
+	SetBodyType(string)
 	SetHead(head.HeaderInterface)
 	SetSecret([]byte)
 	ClearSecret()
@@ -22,6 +28,7 @@ type Packer interface {
 	GetHead() head.HeaderInterface
 	GetBody() string
 	GetSecret() []byte
+	GetBodyType() string
 
 	IsPackageComplete() bool
 	IsHeadSet() bool
@@ -63,6 +70,7 @@ func SignPackage(p Packer) {
 // Package describes what is coming from a request. It is similar to, but different from,
 // the response package. It conforms to the Packer interface
 type Package struct {
+	System   string
 	Version  float32
 	BodyType string
 
@@ -75,6 +83,7 @@ type Package struct {
 // NewPackage creates a new package and returns the address to the caller.
 func NewPackage() Packer {
 	return &Package{
+		System:   "gus",
 		Head:     head.New(),
 		Body:     "{}",
 		Version:  1.0,
@@ -115,8 +124,9 @@ func (p *Package) GetBody() string {
 
 func (p *Package) SetBodyMarshal(body interface{}) (err error) {
 	var byteBody []byte
-	p.BodyType = reflect.TypeOf(body).String()
-	byteBody, err = json.Marshal(body)
+	types := strings.Split(reflect.TypeOf(body).String(), ".")
+	p.BodyType = types[len(types)-1]
+	byteBody, err = json.MarshalIndent(body, "", "  ")
 	if err == nil {
 		p.Body = string(byteBody)
 	}
@@ -143,4 +153,9 @@ func (p *Package) SetSecret(s []byte) {
 func (p *Package) ClearSecret() {
 	p.secret = nil
 	return
+}
+
+func (h *Package) GetBodyType() string { return h.BodyType }
+func (h *Package) SetBodyType(val string) {
+	h.BodyType = val
 }

@@ -24,13 +24,13 @@ type ErrorCoder interface {
 
 // General Error structure holds both an error string and an error code.
 type GeneralError struct {
-	errorString string
-	errorCode   int
+	Message    string
+	ReturnCode int
 }
 
 // Create a new GeneralError from a string and an integer
 func NewGeneralError(msg string, code int) ErrorCoder {
-	return &GeneralError{errorString: msg, errorCode: code}
+	return &GeneralError{Message: msg, ReturnCode: code}
 }
 
 // Create a new Generalerror from a regular 'error' type and an integer
@@ -38,15 +38,15 @@ func NewGeneralFromError(e error, code int) ErrorCoder {
 	if e == nil {
 		return nil
 	}
-	return &GeneralError{errorString: e.Error(), errorCode: code}
+	return &GeneralError{Message: e.Error(), ReturnCode: code}
 
 }
 
 // Return the error message
-func (s *GeneralError) Error() string { return s.errorString }
+func (s *GeneralError) Error() string { return s.Message }
 
 // return the error integer.
-func (s *GeneralError) Code() int { return s.errorCode }
+func (s *GeneralError) Code() int { return s.ReturnCode }
 
 var ErrBadPackage = NewGeneralError("Package: Bad format", http.StatusBadRequest)
 var ErrBadBody = NewGeneralError("Package: Cannot unarshal body", http.StatusBadRequest)

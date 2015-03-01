@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/cgentry/gus/cli"
-	"github.com/cgentry/gus/record"
+	"github.com/cgentry/gus/record/tenant"
 	"github.com/cgentry/gus/storage"
 	"os"
 	"strings"
@@ -92,7 +92,7 @@ func runConfig(cmd *cli.Command, args []string) {
 	for promptForValues = true; promptForValues; {
 		cli.PromptForStructFields(&c.Encrypt, template_cmd_help_config_crypt)
 		if strings.Contains(c.Encrypt.Options, CONFIG_SETUP_AUTOSALT) {
-			c.Encrypt.Options = strings.Replace(c.Encrypt.Options, CONFIG_SETUP_AUTOSALT, record.CreateSalt(200), -1)
+			c.Encrypt.Options = strings.Replace(c.Encrypt.Options, CONFIG_SETUP_AUTOSALT, tenant.CreateSalt(200), -1)
 		}
 		fmt.Println("\nValues are:")
 		cli.PrintStructValue(os.Stdout, &c.Encrypt)

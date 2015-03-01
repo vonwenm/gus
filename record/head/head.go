@@ -13,15 +13,21 @@ import (
 //
 type HeaderInterface interface {
 	IsTimeSet() bool
-	GetSignature() ( []byte , error )
+	GetSignature() ([]byte, error)
 	SetSignature([]byte)
 	Check() error
 	IsSignatureSet() bool
+
+	GetDomain() string
+	SetDomain(string)
+	GetId() string
+	SetId(string)
+	GetSequence() int
+	SetSequence(int)
 }
 
 // Head implements the record.HeaderInterface
 type Head struct {
-	Code     int
 	Domain   string
 	Id       string
 	Sequence int
@@ -67,7 +73,16 @@ func (h *Head) Check() error {
 
 // Convert the Head value to a string
 func (h *Head) String() string {
-	sig,_ := h.Signature.GetSignature()
+	sig, _ := h.Signature.GetSignature()
 	return fmt.Sprintf("Domain: '%s', Id: '%s', Time: '%v', Signature: '%s', Set? %v",
 		h.Domain, h.Id, h.Timestamp, sig, h.IsTimeSet())
 }
+
+func (h *Head) GetDomain() string    { return h.Domain }
+func (h *Head) SetDomain(val string) { h.Domain = val }
+
+func (h *Head) GetId() string    { return h.Id }
+func (h *Head) SetId(val string) { h.Id = val }
+
+func (h *Head) GetSequence() int    { return h.Sequence }
+func (h *Head) SetSequence(val int) { h.Sequence = val }

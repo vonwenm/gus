@@ -4,14 +4,19 @@
 package web
 
 import (
+	"crypto/md5"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/cgentry/gus/ecode"
 	"github.com/cgentry/gus/record"
 	"github.com/cgentry/gus/record/configure"
-	"github.com/cgentry/gus/record/response"
 	"github.com/cgentry/gus/service"
+	"io"
 	"io/ioutil"
 	"net/http"
+	"strconv"
+	"time"
 )
 
 // These constants provide the route string used in the http.Handle call.
@@ -26,6 +31,8 @@ const (
 	SRV_UPDATE   = "/update/"
 	SRV_HOME     = "/"
 	SRV_TEST     = "/test/"
+
+	GUS_VERSION = "0.1"
 )
 
 // Route to service defines what a function needs to look like in order for us to call it when
@@ -122,37 +129,60 @@ func httpCallService(c *configure.Configure, rhandle RouteService, name string, 
 
 	srv = rhandle.Server()
 
-	returnPackage := srv.SetupService(c, string(httpRequestBody))
+	returnPackage, err := srv.SetupService(c, string(httpRequestBody))
 
-	if returnPackage == nil {
+	if err == nil {
 		// Check here for client server match// Check here for client certifcate match
-		returnPackage = srv.Run(srv)
+		returnPackage, err = srv.Run(srv)
 	}
 
 	srv.Teardown()
-	httpResponseWrite(w, returnPackage)
+	httpResponseWrite(w, returnPackage, err)
 	return
 }
 
+// httpErrorWrite will pack the code and message into a standard response and call
+// httpResponseWrite to return the final result
 func httpErrorWrite(w http.ResponseWriter, code int, msg string) {
-	responseHead := response.NewHead()
-	responseHead.Code = code
-	responseHead.Message = msg
 	responsePackage := record.NewPackage()
-	responsePackage.SetHead(responseHead)
-	httpResponseWrite(w, responsePackage)
+	err := ecode.NewGeneralError(msg, code)
+	responsePackage.SetBodyMarshal(err)
+	responsePackage.SetBodyType(record.PACKAGE_BODYTYPE_ERROR)
+	httpResponseWrite(w, responsePackage, err)
 }
 
-func httpResponseWrite(w http.ResponseWriter, responsePackage *record.Package) {
-	responseHead, OK := responsePackage.Head.(response.Head)
-	if !OK {
-		responseHead = response.NewHead()
+// httpResponseWrite returns to the caller the body and headers properly set for this
+// type of call. Headers for type, md5, code and message will all be set
+func httpResponseWrite(w http.ResponseWriter, responsePackage record.Packer, err error) {
+	httpResponseBody, convertErr := json.Marshal(responsePackage)
+	if convertErr != nil {
+		httpResponseBody = []byte("{}")
 	}
-	httpResponseBody, _ := json.Marshal(responsePackage)
-	w.WriteHeader(responseHead.Code)
-	if responseHead.Message != "" {
-		w.Header().Set("Message", responseHead.Message)
+
+	if err == nil {
+		err = ecode.ErrStatusOk
 	}
+	w.Header().Set("Message", err.Error())
+	errInternal, ok := err.(*ecode.GeneralError)
+	if ok {
+		w.WriteHeader(errInternal.Code())
+	}
+
+	// Set the encoding type (JSON)
+	w.Header().Set("Content-Type", "text/json")
+
+	// Set the header MD5 checksum
+	rsvpMD5 := md5.New()
+	io.WriteString(rsvpMD5, string(httpResponseBody))
+	rsvpChecksum := base64.StdEncoding.EncodeToString(rsvpMD5.Sum(nil))
+	w.Header().Set("CONTENT-MD5", rsvpChecksum)
+
+	w.Header().Set("ETag", rsvpChecksum)
+	w.Header().Set("Date", time.Now().Format(time.RFC1123))
+	w.Header().Set("Content-Length", strconv.Itoa(len(httpResponseBody)))
+	w.Header().Set("Cache-Control", "no-store") // Don't cache this record
+	w.Header().Set("Server", "gus/"+GUS_VERSION)
+
 	w.Write(httpResponseBody)
 	return
 }

@@ -16,7 +16,6 @@ import (
 	"github.com/cgentry/gus/record/tenant"
 	"github.com/cgentry/gus/storage"
 	"net/http"
-	"strings"
 )
 
 // Permissions for updating
@@ -44,7 +43,7 @@ type ServiceProcessor interface {
 // runtime function that will receive this information.
 type ServiceProcess struct {
 	// Points to the function that will process the request. It will be passed this structure.
-	Run func(*ServiceProcess) *record.Package
+	Run func(*ServiceProcess) (record.Packer, error)
 
 	// Point to the configuration class. All configuration is held here.
 	Config *configure.Configure
@@ -130,31 +129,32 @@ func NewServiceTest() *ServiceProcess {
 
 // Setup the service structure for common values required.  This will take the request package and
 // unpack it into the header and service-specific body.
-func (s *ServiceProcess) SetupService(c *configure.Configure, requestPackage string) record.Packer {
+func (s *ServiceProcess) SetupService(c *configure.Configure, requestPackage string) (record.Packer, error) {
 	var err error
 
 	// Unpack the incoming request, saving the body and header in our structure.
 	// ensure the package has all of the required elements.
 	pack := record.NewPackage()
 	if err = json.Unmarshal([]byte(requestPackage), pack); err != nil {
-		return s.ResponseCode(err.Error(), ecode.ErrBadPackage)
+		return s.PackageCodeMsg(ecode.ErrBadPackage.Code(), err.Error())
 	}
 
 	if !pack.IsPackageComplete() {
-		return s.ResponseCode(`"{"Message": "Package is not complete"}`, ecode.ErrBadPackage)
+		return s.PackageCodeMsg(ecode.ErrBadPackage.Code(), "Package is not complete")
 	}
+	if err = pack.GetHead().Check(); err != nil {
+		return s.PackageCodeMsg(ecode.ErrBadPackage.Code(), "Header is not complete")
+	}
+
 	s.RequestHead, _ = pack.GetHead().(*head.Head)
-	s.ResponseHead.Sequence = s.RequestHead.Sequence
-	s.ResponseHead.Id = s.RequestHead.Id
-	if err = s.RequestHead.Check(); err != nil {
-		return s.ResponseCode(`{"Message":"Header is not complete."}`, err)
-	}
+	s.ResponsePackage.GetHead().SetSequence(pack.GetHead().GetSequence())
+	s.ResponsePackage.GetHead().SetId(pack.GetHead().GetId())
 
 	// Open up the storage handles. We only need the UserStore as the ClientStore is transitory
 	// and only used to read in the client record.
 	s.UserStore, err = storage.Open(s.Config.User.Name, s.Config.User.Dsn, s.Config.User.Options)
 	if err != nil {
-		return s.ResponseCode(SERVICE_EMPTY_BODY, err)
+		return s.PackageErr(err)
 	}
 	s.SetFlag = true
 	if s.Config.Service.ClientStore {
@@ -172,7 +172,7 @@ func (s *ServiceProcess) SetupService(c *configure.Configure, requestPackage str
 		s.UserStore.Release()
 	}
 	if err != nil {
-		return s.ResponseCode(SERVICE_EMPTY_BODY, err)
+		return s.PackageErr(err)
 	}
 	s.ResponsePackage.SetSecret([]byte(s.Client.Salt))
 
@@ -182,22 +182,20 @@ func (s *ServiceProcess) SetupService(c *configure.Configure, requestPackage str
 	}
 	// Unpack the body. The body is defined as an interface, so we can do a check here.
 	if err = json.Unmarshal([]byte(pack.GetBody()), s.RequestBody); err != nil {
-		return s.ResponseCode(SERVICE_EMPTY_BODY, ecode.ErrBadBody)
+		return s.PackageErr(ecode.ErrBadBody)
 	}
 	if err = s.RequestBody.Check(); err != nil {
-		return s.ResponseCode(SERVICE_EMPTY_BODY, err)
+		return s.PackageErr(err)
 	}
 
-	fmt.Printf("USER STORE: %+v\n", s.UserStore)
-	s.ResponseOk("")
-	return nil
+	return nil, nil
 }
 
 // Allocate storage for all of the data in the structure. This will "reset" the storage
 // and let the service be re-used.
 func (s *ServiceProcess) Reset() *ServiceProcess {
-	s.ResponseHead = head.New()
 	s.ResponsePackage = record.NewPackage()
+	s.ResponseHead = s.ResponsePackage.GetHead().(*head.Head)
 	s.Options = make(map[string]string)
 	return s
 }
@@ -216,20 +214,20 @@ func (s *ServiceProcess) Teardown() error {
 // test will simply check that a package is correctly formatted, the key is valid and the
 // timestamp is correct. It then sends an OK message back. Most of the data checking is
 // done already in "Setup"
-func servicetest(s *ServiceProcess) *record.Package {
-	s.ResponsePackage.SetBodyMarshal( response.NewAck(`test`) )
+func servicetest(s *ServiceProcess) (record.Packer, error) {
+	s.ResponsePackage.SetBodyMarshal(response.NewAck(`test`))
 	return s.PackageOk()
 }
 
 // register will register a new user into the main s.UserStore. This will package up the response into a common
 // response package after checking the integrity of the request.
-func register(s *ServiceProcess) *record.Package {
+func register(s *ServiceProcess) (record.Packer, error) {
 	var err error
 	var eUpdate mappers.ErrSetter
 
 	request, ok := s.RequestBody.(*request.Register)
 	if !ok {
-		return s.ResponseCode(SERVICE_EMPTY_BODY, ecode.ErrBadBody)
+		return s.PackageErr(ecode.ErrBadBody)
 	}
 	newUser := tenant.NewUser()
 	eUpdate.Set(newUser.SetDomain, s.Client.Domain)
@@ -237,16 +235,15 @@ func register(s *ServiceProcess) *record.Package {
 	eUpdate.Set(newUser.SetLoginName, request.Login)
 	eUpdate.Set(newUser.SetName, request.Name)
 	if err = eUpdate.Set(newUser.SetPassword, request.Password); err != nil {
-		return s.ResponseCode(SERVICE_EMPTY_BODY, err)
+		return s.PackageErr(err)
 	}
 
 	if err = s.UserStore.UserInsert(newUser); err != nil {
-		return s.ResponseCode(SERVICE_EMPTY_BODY, err)
+		return s.PackageErr(err)
 	}
 
-	err = s.ResponsePackage.SetBodyMarshal(mappers.ResponseFromUser(response.NewUserReturn(), newUser) )
-	if err != nil {
-		return s.ResponseCode(SERVICE_EMPTY_BODY, err)
+	if err = s.ResponsePackage.SetBodyMarshal(mappers.ResponseFromUser(response.NewUserReturn(), newUser)); err != nil {
+		return s.PackageErr(err)
 	}
 	return s.PackageOk()
 
@@ -254,7 +251,7 @@ func register(s *ServiceProcess) *record.Package {
 
 // ServiceLogin will Login a user that is registered in the s.UserStore. This will package up the response into a common
 // response package after checking the integrity of the request.
-func login(s *ServiceProcess) *record.Package {
+func login(s *ServiceProcess) (record.Packer, error) {
 	login := s.RequestBody.(*request.Login)
 	if s.UserStore == nil {
 		panic("The userstore is nil")
@@ -263,20 +260,19 @@ func login(s *ServiceProcess) *record.Package {
 	defer s.UserStore.Release()
 	user, err := s.UserStore.FetchUserByLogin(s.Client.Domain, login.Login)
 	if err != nil {
-		return s.ResponseCode(SERVICE_EMPTY_BODY, err)
+		return s.PackageErr(err)
 	}
 	// Process the login request. This checks the password that was passed
 	if err = user.Login(login.Password); err != nil {
 		s.UserStore.UserUpdate(user) // Try and save the error counters
-		return s.ResponseCode(SERVICE_EMPTY_BODY, err)
+		return s.PackageErr(err)
 	}
 
 	if err = s.UserStore.UserUpdate(user); err != nil {
-		return s.ResponseCode(SERVICE_EMPTY_BODY, err)
+		return s.PackageErr(err)
 	}
-	err = s.ResponsePackage.SetBodyMarshal(mappers.ResponseFromUser(response.NewUserReturn(), user) )
-	if err != nil {
-		return s.ResponseCode(SERVICE_EMPTY_BODY, err)
+	if err = s.ResponsePackage.SetBodyMarshal(mappers.ResponseFromUser(response.NewUserReturn(), user)); err != nil {
+		return s.PackageErr(err)
 	}
 	return s.PackageOk()
 }
@@ -284,7 +280,7 @@ func login(s *ServiceProcess) *record.Package {
 // ServiceLogout will logout the user that is currently logged in. Only the token is required for this operation.
 // If the user is not logged in then an error will be returned. If a user isn't found, a 'NotLoggedIn'
 // is returned instead. This is a more precise message for a logout condition
-func logout(s *ServiceProcess) *record.Package {
+func logout(s *ServiceProcess) (record.Packer, error) {
 	var err error
 
 	logout, _ := s.RequestBody.(*request.Logout)
@@ -293,30 +289,29 @@ func logout(s *ServiceProcess) *record.Package {
 	user, err := s.UserStore.UserFetch(s.Client.Domain, storage.FIELD_TOKEN, logout.Token)
 	if err != nil {
 		if err == ecode.ErrUserNotFound {
-			return s.ResponseCode("", ecode.ErrUserNotLoggedIn)
+			return s.PackageErr(ecode.ErrUserNotLoggedIn)
 		}
-
-		return s.ResponseCode("", err)
+		return s.PackageErr(err)
 	}
 	defer s.UserStore.Release()
 
 	if err = user.Logout(); err != nil {
-		return s.ResponseCode("", err)
+		return s.PackageErr(err)
 	}
 
 	if err = s.UserStore.UserUpdate(user); err != nil {
-		return s.ResponseCode("", err)
+		return s.PackageErr(err)
 	}
-	err = s.ResponsePackage.SetBodyMarshal( response.NewAck(`logout`) )
+	err = s.ResponsePackage.SetBodyMarshal(response.NewAck(`logout`))
 	if err != nil {
-		return s.ResponseCode(SERVICE_EMPTY_BODY, err)
+		return s.PackageErr(err)
 	}
 	return s.PackageOk()
 }
 
 // Authenticate will check to see if the user is logged in and then mark the record as updated. This should
 // only be called about once a minute by the client so they
-func authenticate(s *ServiceProcess) *record.Package {
+func authenticate(s *ServiceProcess) (record.Packer, error) {
 	var err error
 
 	auth, _ := s.RequestBody.(*request.Authenticate)
@@ -325,20 +320,20 @@ func authenticate(s *ServiceProcess) *record.Package {
 	user, err := s.UserStore.UserFetch(s.Client.Domain, storage.FIELD_TOKEN, auth.Token)
 	if err != nil {
 		if err == ecode.ErrUserNotFound {
-			return s.ResponseCode("", ecode.ErrUserNotLoggedIn)
+			return s.PackageErr(ecode.ErrUserNotLoggedIn)
 		}
-		return s.ResponseCode("", err)
+		return s.PackageErr(err)
 	}
 	defer s.UserStore.Release()
 
 	if err = user.Authenticate(auth.Token); err != nil {
-		return s.ResponseCode("", err)
+		return s.PackageErr(err)
 	}
 
 	if err = s.UserStore.UserUpdate(user); err != nil {
-		return s.ResponseCode("", err)
+		return s.PackageErr(err)
 	}
-	s.ResponsePackage.SetBodyMarshal( response.NewAck(`logout`) )
+	s.ResponsePackage.SetBodyMarshal(response.NewAck(`logout`))
 	return s.PackageOk()
 }
 
@@ -351,7 +346,7 @@ func authenticate(s *ServiceProcess) *record.Package {
 //
 // If a front-end wants to create multiple interfaces (change password only, for example) it can include options
 // in the call which will stop updates from occurring.
-func update(s *ServiceProcess) *record.Package {
+func update(s *ServiceProcess) (record.Packer, error) {
 	var err error
 	var eSetter mappers.ErrSetter
 	var updatedFields []string
@@ -359,13 +354,13 @@ func update(s *ServiceProcess) *record.Package {
 	update := s.RequestBody.(*request.Update)
 
 	if s.Options == nil || len(s.Options) == 0 {
-		return s.Response("", http.StatusInternalServerError, "No updates in options")
+		return s.PackageCodeMsg(http.StatusInternalServerError, "No updates in options")
 	}
 
 	// Find the user via Token
 	user, err := s.UserStore.UserFetch(s.Client.Domain, storage.FIELD_TOKEN, update.Token)
 	if err != nil {
-		return s.ResponseCode("", err)
+		return s.PackageErr(err)
 	}
 	defer s.UserStore.Release()
 
@@ -382,27 +377,29 @@ func update(s *ServiceProcess) *record.Package {
 		updatedFields = append(updatedFields, "Email")
 	}
 	if eSetter.Err != nil {
-		return s.ResponseCode("", eSetter.Err)
+		return s.PackageErr(eSetter.Err)
 	}
 	if update.OldPassword != "" && update.NewPassword != "" && (s.boolOption(PERMIT_ALL) || s.boolOption(PERMIT_PASSWORD)) {
 		if err = user.ChangePassword(update.OldPassword, update.NewPassword); err != nil {
-			return s.ResponseCode("", err)
+			return s.PackageErr(err)
 		}
 		updatedFields = append(updatedFields, "Password")
 	}
 	if len(updatedFields) == 0 {
-		return s.Response("", http.StatusBadRequest, "No fields included for update")
+		return s.PackageCodeMsg(http.StatusBadRequest, "No fields included for update")
 	}
 	if err = s.UserStore.UserUpdate(user); err != nil {
-		return s.ResponseCode("", err)
+		return s.PackageErr(err)
 	}
 
-	returnUserJson, err := json.Marshal(mappers.ResponseFromUser(response.NewUserReturn(), user))
-	if err != nil {
-		return s.Response("", http.StatusInternalServerError, err.Error())
+	if err = s.ResponsePackage.SetBodyMarshal(mappers.ResponseFromUser(response.NewUserReturn(), user)); err != nil {
+		return s.PackageErr(err)
 	}
-	return s.Response(string(returnUserJson), ecode.ErrStatusOk.Code(), "Fields updated: "+strings.Join(updatedFields, `, `))
+	return s.PackageOk()
+
+	return s.PackageOk()
 }
+
 func (s *ServiceProcess) boolOption(key string) bool {
 	_, ok := s.Options[key]
 	return ok
@@ -413,43 +410,37 @@ func (s *ServiceProcess) boolOption(key string) bool {
  *				package up any responses and return to caller
  */
 
-func ( s *ServiceProcess) PackageOk() record.Packer {
-	record.SignPackage( s.ResponsePackage )
-	return s.ResponsePackage
-}
-
-
-func ( s *ServiceProcess ) PackageErr( err Error ) record.Packer {
-	s.ResponsePackage.SetBodyMarshal( err )
-	return s.ResponsePackage
-}
-// Return a response package based upon the caller, header, body and status code/message
-// This will pack up all the data for a simple response that can be sent using http/rpc/queue
-func (s *ServiceProcess) Response(jsonResponse string, returnCode int, statusMsg string) *record.Package {
-	s.ResponsePackage.SetBodyString(jsonResponse)
-	s.ResponsePackage.SetHead(s.ResponseHead)
+// Return an OK package value. The package is signed, but no data is serialised.
+func (s *ServiceProcess) PackageOk() (record.Packer, error) {
 	record.SignPackage(s.ResponsePackage)
-	s.ResponsePackage.ClearSecret()
-
-	return s.ResponsePackage
+	return s.ResponsePackage, ecode.ErrStatusOk
 }
 
-// Return a response package based upon the caller, header, body and storage error (which contains code/error)
-// This will pack up all the data for a simple response that can be sent using http/rpc/queue
-func (s *ServiceProcess) ResponseCode(jsonResponseBody string, err error) *record.Package {
-	if err == nil {
-		return s.ResponseCode(jsonResponseBody, ecode.ErrStatusOk)
-	}
-	var code int
-	if serr, ok := err.(*ecode.GeneralError); ok {
-		code = serr.Code()
-	} else {
-		code = http.StatusInternalServerError
-	}
-	return s.Response(jsonResponseBody, code, err.Error())
+// PackageCodeMsg will create a general error for GUS from an integer code and string passed.
+func (s *ServiceProcess) PackageCodeMsg(code int, msg string) (record.Packer, error) {
+	return s.PackageErr(ecode.NewGeneralError(msg, code))
 }
 
-// A convenience function to simply return an OK response with data.
-func (s *ServiceProcess) ResponseOk(jsonReponseBody string) *record.Package {
-	return s.ResponseCode(jsonReponseBody, ecode.ErrStatusOk)
+// PackageErr will encode the error as a general error, set the error type in the header as 'Error'
+// serialise it in JSON format and package up the response.
+func (s *ServiceProcess) PackageErr(err error) (record.Packer, error) {
+	var jsondata []byte
+	var errcode error
+	var gerror ecode.ErrorCoder
+	var ok bool
+
+	if gerror, ok = err.(*ecode.GeneralError); !ok {
+		gerror = ecode.NewGeneralFromError(err, http.StatusInternalServerError)
+	}
+
+	jsondata, errcode = json.Marshal(gerror)
+	if errcode != nil {
+		s.ResponsePackage.SetBody(
+			fmt.Sprintf(`{ "Message": %s, "ReturnCode":%d }`, errcode.Error(), http.StatusInternalServerError))
+	}
+
+	s.ResponsePackage.SetBodyType(record.PACKAGE_BODYTYPE_ERROR)
+	s.ResponsePackage.SetBody(string(jsondata))
+	record.SignPackage(s.ResponsePackage)
+	return s.ResponsePackage, gerror
 }

@@ -7,10 +7,10 @@ import (
 
 type Ack struct {
 	stamp.Timestamp
-	Request	string
+	Request string
 }
 
-func NewAck( op string ) *Ack {
+func NewAck(op string) *Ack {
 	rtn := &Ack{}
 	rtn.SetStamp(time.Now())
 	rtn.Request = op

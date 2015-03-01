@@ -14,6 +14,7 @@ package bcrypt
 import (
 	"code.google.com/p/go.crypto/bcrypt"
 	"github.com/cgentry/gus/encryption"
+	"log"
 )
 
 type PwdBcrypt struct {
@@ -59,17 +60,19 @@ func (t *PwdBcrypt) EncryptPassword(clearPassword, userSalt string) string {
 
 // Setup should be called only when the driver has been selected for use.
 func (t *PwdBcrypt) Setup(jsonOptions string) encryption.EncryptDriver {
-	opt, err := encryption.UnmarshalOptions(jsonOptions)
-	if err != nil {
-		panic(err.Error())
+	if jsonOptions != "" {
+		opt, err := encryption.UnmarshalOptions(jsonOptions)
+		if err != nil {
+			log.Printf("Bcrypt: Could not unmarshal '%s' options: ignored.", jsonOptions)
+			return t
+		}
+		if opt.Cost > 0 {
+			t.Cost = opt.Cost
+		}
+		if len(opt.Salt) > 0 {
+			t.Salt = opt.Salt
+		}
 	}
-	if opt.Cost > 0 {
-		t.Cost = opt.Cost
-	}
-	if len(opt.Salt) > 0 {
-		t.Salt = opt.Salt
-	}
-
 	return t
 }
 

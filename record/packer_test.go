@@ -31,7 +31,7 @@ func TestPackager(t *testing.T) {
 
 			p.SetHead(h)
 			sig, err := p.GetHead().GetSignature()
-			So( err, ShouldBeNil)
+			So(err, ShouldBeNil)
 			So(string(sig), ShouldBeBlank)
 			So(p.IsHeadSet(), ShouldBeTrue)
 			//So(p.IsBodySet(), ShouldBeFalse)
@@ -46,18 +46,18 @@ func TestPackager(t *testing.T) {
 		Convey("Check functions with completed values", func() {
 
 			p.SetHead(h)
-				sig, err := p.GetHead().GetSignature()
-				So( err, ShouldBeNil)
-				So(string(sig), ShouldBeBlank)
-				p.SetSecret([]byte(`abcdefSecret`))
+			sig, err := p.GetHead().GetSignature()
+			So(err, ShouldBeNil)
+			So(string(sig), ShouldBeBlank)
+			p.SetSecret([]byte(`abcdefSecret`))
 			p.SetBody("Hello there")
 			So(p.GetBody(), ShouldContainSubstring, `Hello there`)
 			SignPackage(p)
 
-			So(p.GetHead().IsSignatureSet() , ShouldBeTrue )
+			So(p.GetHead().IsSignatureSet(), ShouldBeTrue)
 			So(GoodSignature(p), ShouldBeTrue)
 			p.ClearSecret()
-			So( string(p.GetSecret()) , ShouldBeBlank)
+			So(string(p.GetSecret()), ShouldBeBlank)
 			So(GoodSignature(p), ShouldBeFalse)
 
 			p.SetSecret([]byte(`anotherSecret`))

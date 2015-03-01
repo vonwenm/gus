@@ -57,7 +57,7 @@ func TestGuid(t *testing.T) {
 		So(tuser.Guid, ShouldNotBeBlank)
 		So(len(tuser.Guid), ShouldEqual, 36)
 		So(tuser.Salt, ShouldNotBeBlank)
-		So(len(tuser.Salt), ShouldEqual, 40)
+		So(len(tuser.Salt), ShouldEqual, 64)
 	})
 }
 

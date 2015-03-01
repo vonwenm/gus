@@ -162,13 +162,14 @@ func NewUser() *User {
 	user.CreatedAt = now
 	user.UpdatedAt = now
 	user.IsSystem = false
-
-	user.SetDomain("")
-	user.Salt = CreateSalt(20)
-	user.Token = CreateSalt(20) // Tokens need to be unique
 	user.IsActive = true
 	user.IsLoggedIn = false
+
+	user.SetDomain("")
 	user.GenerateGuid()
+	user.Salt = CreateSalt(32)
+	user.Token = user.CreateToken()
+
 	return user
 }
 
@@ -188,8 +189,7 @@ func (user *User) GenerateGuid() {
 	if user.Guid == "" {
 		guid := md5.New()
 		guid.Write([]byte(user.GetCreatedAtStr())) // Add in the creation string
-		guid.Write([]byte(user.Salt))              // And the user's magic (unique) number
-		guid.Write([]byte(CreateSalt(60)))         // A bit more entropy (so it isn't repeatable)
+		guid.Write([]byte(CreateSalt(60)))         // A more entropy (so it isn't repeatable)
 		out := guid.Sum(nil)
 		user.Guid = fmt.Sprintf("%x-%x-%x-%x-%x", out[0:4], out[4:6], out[6:8], out[8:10], out[10:])
 	}
@@ -201,7 +201,7 @@ func (user *User) GenerateGuid() {
 func (user *User) CreateToken() string {
 	guid := md5.New()
 	guid.Write([]byte(user.Guid))      // Always based on user's GUID
-	guid.Write([]byte(CreateSalt(20))) // And a non-repeatable magic number
+	guid.Write([]byte(CreateSalt(20))) // And a bit of random magic
 	out := guid.Sum(nil)
 	return fmt.Sprintf("%x-%x-%x-%x-%x", out[0:4], out[4:6], out[6:8], out[8:10], out[10:])
 }
