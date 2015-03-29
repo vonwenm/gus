@@ -1,0 +1,21 @@
+{
+  "Service": {
+    "Host": "localhost",
+    "Port": 9090,
+    "ClientId": "",
+    "ClientStore": false
+  },
+  "User": {
+    "Name": "sqlite",
+    "Dsn": "examples/userdb.sqlite",
+    "Options": "User"
+  },
+  "Client": {
+    "Name": "",
+    "Dsn": "",
+    "Options": ""
+  },
+  "Encrypt": {
+    "Name": "plaintext",
+    "Options": ""  }
+}

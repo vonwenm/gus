@@ -130,7 +130,12 @@ func addCommonCommandFlags(cmd *cli.Command) {
 
 func runtimeFail(msg string, err error) {
 	var rpt int
-	emsg := err.Error()
+	var emsg string
+	if err == nil {
+		emsg = "(runtime error)"
+	}else{
+		emsg = err.Error()
+	}
 	if len(emsg) > len(msg) {
 		rpt = len(emsg)
 	} else {

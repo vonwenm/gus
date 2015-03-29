@@ -11,8 +11,15 @@ type ErrSetter struct {
 	Err error
 }
 type ErrFunctionSetter func(string) error
+type ErrFunctionBoolSetter func(bool) error
 
 func (e *ErrSetter) Set(setter ErrFunctionSetter, val string) error {
+	if e.Err == nil {
+		e.Err = setter(val)
+	}
+	return e.Err
+}
+func (e *ErrSetter) SetBool(setter ErrFunctionBoolSetter, val bool) error {
 	if e.Err == nil {
 		e.Err = setter(val)
 	}

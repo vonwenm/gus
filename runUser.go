@@ -34,8 +34,8 @@ The criteria are:
 }
 
 var cmdUserAdd = &cli.Command{
-	Name:      "useradd",
-	UsageLine: "gus useradd [-c configfile] [-priv level] [-enable]",
+	Name:      "user add",
+	UsageLine: "gus user add [-c configfile] [-priv level] [-enable]",
 	Short:     "Add a new user to the system.",
 	Long: `
 Add a new user to the system, specifying the privledge level. This
@@ -48,6 +48,17 @@ but not enabled.
 `,
 }
 
+var cmdUserLoad = &cli.Command{
+	Name:      "user load",
+	UsageLine: "gus user load [-c configfile] file",
+	Short:     "Add new users to the system from a file.",
+	Long: `
+A file must contain an array of JSON definitions for a new user. The records
+should look like:
+  { "FullName": "name" , "LoginName": "login", "Email":"user@example.com","Domain":"groupname","Password":"pwd","Level":"client","Enable":1 }
+`,
+}
+
 var cmdUserCli *tenant.UserCli
 
 func init() {
@@ -55,12 +66,18 @@ func init() {
 
 	cmdUser.Run = runUser
 	addCommonCommandFlags(cmdUser)
+
 	cmdUser.Flag.StringVar(&cmdUserCli.Level, "priv", DEFAULT_CONFIG_FILENAME, "")
 	cmdUser.Flag.StringVar(&cmdUserCli.LoginName, "login", "", "")
 	cmdUser.Flag.StringVar(&cmdUserCli.Email, "email", "", "")
 	cmdUser.Flag.StringVar(&cmdUserCli.Domain, "group", "", "")
 
 	cmdUserAdd.Run = runUserAdd
+	addCommonCommandFlags(cmdUserAdd)
+
+
+	cmdUserLoad.Run = runUserLoad
+	addCommonCommandFlags(cmdUserLoad)
 }
 func runUser(cmd *cli.Command, args []string) {
 	var err error
@@ -72,7 +89,7 @@ func runUser(cmd *cli.Command, args []string) {
 	cmd.Flag.Parse(args[1:])
 	args = cmd.Flag.Args()
 
-	if subCommand != "add" {
+	if subCommand != "add" && subCommand != "load"{
 		if cmdUserCli.Domain == "" {
 			err = errors.New("Domain is required for " + subCommand)
 		} else if cmdUserCli.Email == "" && cmdUserCli.LoginName == "" {
@@ -92,6 +109,10 @@ func runUser(cmd *cli.Command, args []string) {
 		runUserEnable(cmd, args)
 	case subCommand == "disable":
 		runUserDisable(cmd, args)
+	case subCommand == "load" :
+		runUserLoad(cmd,args)
+	default:
+		err = errors.New("Invalid add command: " + subCommand)
 	}
 }
 
@@ -171,6 +192,62 @@ func runUserShow(cmd *cli.Command, args []string) {
 	}
 	userRecord := getUserRecordByCli(store, cmdUserCli)
 	cli.RenderTemplate(os.Stdout, template_cmd_usershow, userRecord)
+}
+
+func runUserLoad( cmd *cli.Command, args []string ){
+
+
+	c, err := GetConfigFile()
+	if err != nil {
+		runtimeFail("Opening configuration file", err)
+	}
+
+	if len(args) < 1 {
+		runtimeFail("No load file passed" , nil )
+	}
+	loadFile := args[0]
+	err = LoadUsersFromJson( c , loadFile )
+	if err != nil {
+		runtimeFail( "Loading user data from " + loadFile , err )
+	}
+}
+
+func LoadUsersFromJson( c *configure.Configure, loadFile string ) ( err error ){
+	var fdata string
+	var users *[]tenant.UserCli
+	var oneUser tenant.User
+	var configStore configure.Store
+
+	_, err = os.Stat(loadFile)
+	if err!= nil {
+		return
+	}
+	fdata, err = ioutil.ReadFile(loadFile)
+	if err == nil {
+		err = json.Unmarshal(fdata, users)
+		if err == nil {
+			if c.Service.ClientStore && urec.IsSystem {
+				configStore = c.Client
+			} else {
+				configStore = c.User
+			}
+			store, err := storage.Open(configStore.Name, configStore.Dsn, configStore.Options)
+			if err != nil {
+				runtimeFail("Opening database", err)
+			}
+			for oneUserCli := range users {
+				err = mappers.UserFromCli( oneUser , oneUserCli)
+				if err != nil {
+					return
+				}
+				err = store.Insert( oneUser )
+				if err != nil {
+					return
+				}
+			}
+		}
+	}
+	return
 }
 
 // Set the user's enable flag to either enable or disable. Don;t

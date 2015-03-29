@@ -1,0 +1,40 @@
+PRAGMA foreign_keys=OFF;
+BEGIN TRANSACTION;
+CREATE TABLE User (
+			Guid         text primary key,
+			LoginName    text ,
+			Email        text ,
+			Token        text UNIQUE,
+
+			Salt         text,
+
+			FullName     text,
+			Domain       text,
+			Password     text,
+
+			IsActive     integer,
+			IsLoggedIn   integer,
+			IsSystem     integer,
+
+			LoginAt      text,
+			LogoutAt     text,
+			LastAuthAt   text,
+			LastFailedAt text,
+			FailCount    integer ,
+
+			MaxSessionAt text,
+			TimeoutAt    text,
+
+			MaxSessionAtSec int8,
+			TimeoutAtSec    int8,
+
+			CreatedAt    text,
+			UpdatedAt    text,
+			DeletedAt    text);
+INSERT INTO "User" VALUES('66310274-4035-abfb-2d8b-8e738caeac22','example','example@test.com','956a68a8-3989-5eee-782a-ad65ae3628fb','7b884780bfa921828df14a2569d2f922c774ec4610ea7fae4fa165e5f70dd771','Example User','example','example;7b884780bfa921828df14a2569d2f922c774ec4610ea7fae4fa165e5f70dd771;SALT;Plaintext','true','false','true','0001-01-01T00:00:00Z','0001-01-01T00:00:00Z','0001-01-01T00:00:00Z','0001-01-01T00:00:00Z',0,'0001-01-01T00:00:00Z','0001-01-01T00:00:00Z',NULL,NULL,'2015-03-03T18:32:55Z','2015-03-03T18:32:55Z','0001-01-01T00:00:00Z');
+CREATE UNIQUE INDEX idxlogin      ON User(LoginName,Domain);
+CREATE UNIQUE INDEX idxEmail      ON User(Email,Domain);
+CREATE INDEX idxfullname   ON User(FullName);
+CREATE INDEX idxMaxSession ON User(MaxSessionAt);
+CREATE INDEX idxTimeoutAt  ON User(TimeoutAt);
+COMMIT;

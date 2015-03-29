@@ -113,26 +113,16 @@ func UserField(user *tenant.User, key, value string) (found bool, rtn error) {
  * See:		UserReturn
  */
 func UserFromCli(rtn *tenant.User, r *tenant.UserCli) (ortn *tenant.User, err error) {
-
+	var eUpdate ErrSetter
 	ortn = rtn
-	if err = rtn.SetDomain(r.Domain); err != nil {
-		return
-	}
-	if err = rtn.SetName(r.FullName); err != nil {
-		return
-	}
-	if err = rtn.SetEmail(r.Email); err != nil {
-		return
-	}
-	if err = rtn.SetLoginName(r.LoginName); err != nil {
-		return
-	}
-	if err = rtn.SetPassword(r.Password); err != nil {
-		return
-	}
-	rtn.SetIsActive(r.Enable)
-	err = rtn.SetIsSystem(r.Level == "client")
+
+	eUpdate.Set(rtn.SetDomain, r.Domain)
+	eUpdate.Set(rtn.SetName, r.FullName)
+	eUpdate.Set(rtn.SetEmail, r.Email)
+	eUpdate.Set(rtn.SetLoginName, r.LoginName)
+	eUpdate.Set(rtn.SetPassword, r.Password)
+	eUpdate.SetBool(rtn.SetIsActive, r.Enable)
+	err = eUpdate.SetBool(rtn.SetIsSystem, (r.Level == "client"))
 
 	return
-
 }
